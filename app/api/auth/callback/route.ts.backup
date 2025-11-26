@@ -1,0 +1,83 @@
+/**
+ * OAuth2 Callback Endpoint
+ * Gestisce il callback dal provider OAuth2 dopo l'autenticazione
+ */
+
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { exchangeCodeForTokens } from "@/lib/auth/token";
+import { setSession } from "@/lib/auth/session";
+import { isOAuthConfigured } from "@/lib/auth/oauth.config";
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const code = searchParams.get("code");
+    const state = searchParams.get("state");
+    const error = searchParams.get("error");
+
+    // Gestione errori dal provider
+    if (error) {
+      console.error("OAuth2 provider error:", error);
+      return NextResponse.redirect(
+        new URL(`/auth/error?code=provider&detail=${error}`, request.url)
+      );
+    }
+
+    // Verifica presenza del code
+    if (!code) {
+      return NextResponse.redirect(
+        new URL("/auth/error?code=400", request.url)
+      );
+    }
+
+    // Verifica configurazione
+    if (!isOAuthConfigured()) {
+      return NextResponse.redirect(
+        new URL("/auth/error?code=config", request.url)
+      );
+    }
+
+    // Verifica state per protezione CSRF
+    const cookieStore = await cookies();
+    const savedState = cookieStore.get("oauth_state")?.value;
+    
+    if (!savedState || savedState !== state) {
+      console.error("State mismatch: CSRF protection triggered");
+      return NextResponse.redirect(
+        new URL("/auth/error?code=csrf", request.url)
+      );
+    }
+
+    // Recupera il code_verifier per PKCE
+    const codeVerifier = cookieStore.get("oauth_code_verifier")?.value;
+    if (!codeVerifier) {
+      console.error("Code verifier not found");
+      return NextResponse.redirect(
+        new URL("/auth/error?code=pkce", request.url)
+      );
+    }
+
+    // Scambia il code per i token con PKCE
+    const tokens = await exchangeCodeForTokens(code, codeVerifier);
+
+    // Salva la sessione
+    await setSession(tokens);
+
+    // Pulisci i cookie temporanei
+    cookieStore.delete("oauth_state");
+    cookieStore.delete("oauth_code_verifier");
+    
+    // Ottieni l'URL di callback salvato
+    const callbackUrl = cookieStore.get("callback_url")?.value || "/dashboard";
+    cookieStore.delete("callback_url");
+
+    // Redirect alla pagina di destinazione
+    return NextResponse.redirect(new URL(callbackUrl, request.url));
+  } catch (error) {
+    console.error("Callback processing error:", error);
+    return NextResponse.redirect(
+      new URL("/auth/error?code=500", request.url)
+    );
+  }
+}

@@ -1,0 +1,74 @@
+/**
+ * Authentication Middleware
+ * Custom session-based authentication
+ */
+
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import NextAuth from "next-auth";
+import { authConfigEdge } from "@/lib/auth/auth.config.edge";
+
+const { auth } = NextAuth(authConfigEdge);
+
+// Route pubbliche che non richiedono autenticazione
+const publicRoutes = [
+  "/",
+  "/auth/login",
+  "/auth/signup",
+  "/auth/error",
+  "/api/auth/login",
+  "/api/auth/logout",
+  "/api/auth/signup",
+  "/view", // Visualizzazione pubblica documenti
+  "/api/public", // API pubbliche
+];
+
+// Route di autenticazione che reindirizzano se già autenticati
+const authRoutes = ["/auth/login", "/auth/signup"];
+
+export default async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  // Temporarily disable middleware - allow all requests
+  return NextResponse.next();
+
+  // Permetti accesso alle route pubbliche
+  if (publicRoutes.some((route) => pathname.startsWith(route))) {
+    return NextResponse.next();
+  }
+
+  // Verifica la sessione usando auth() compatibile con Edge
+  const session = await auth();
+
+  // Se l'utente è autenticato e cerca di accedere a pagine di auth, redirect alla dashboard
+  if (
+    session &&
+    authRoutes.some((route) => pathname.startsWith(route))
+  ) {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
+  }
+
+  // Se non autenticato, redirect al login
+  if (!session) {
+    const loginUrl = new URL("/auth/login", req.url);
+    loginUrl.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // Utente autenticato, permetti l'accesso
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: [
+    /*
+     * Match tutte le route eccetto:
+     * - _next/static (file statici)
+     * - _next/image (ottimizzazione immagini)
+     * - favicon.ico, robots.txt, sitemap.xml
+     * - file pubblici (.svg, .png, .jpg, ecc.)
+     */
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+  ],
+};
+

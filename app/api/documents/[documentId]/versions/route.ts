@@ -1,0 +1,208 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getSession } from "@/lib/auth/session";
+import { prisma } from "@/lib/db/prisma";
+import { getStorageProvider } from "@/lib/storage";
+import { createAuditLog } from "@/lib/auth/audit-logger";
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ documentId: string }> }
+) {
+  try {
+    const session = await getSession();
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { documentId } = await params;
+
+    // Get document to check access
+    const document = await prisma.document.findUnique({
+      where: { id: documentId },
+      include: {
+        team: {
+          include: {
+            members: {
+              where: {
+                user: {
+                  email: session.email,
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!document) {
+      return NextResponse.json({ error: "Document not found" }, { status: 404 });
+    }
+
+    // Check if user has access to this document's team
+    if (document.team.members.length === 0) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Fetch all versions
+    const versions = await prisma.documentVersion.findMany({
+      where: {
+        documentId,
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+      },
+      orderBy: {
+        versionNumber: "desc",
+      },
+    });
+
+    return NextResponse.json({ versions });
+  } catch (error) {
+    console.error("Error fetching document versions:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch versions" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ documentId: string }> }
+) {
+  try {
+    const session = await getSession();
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { documentId } = await params;
+
+    // Get user
+    const user = await prisma.user.findUnique({
+      where: { email: session.email },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Get document to check access
+    const document = await prisma.document.findUnique({
+      where: { id: documentId },
+      include: {
+        team: {
+          include: {
+            members: {
+              where: {
+                userId: user.id,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!document) {
+      return NextResponse.json({ error: "Document not found" }, { status: 404 });
+    }
+
+    if (document.team.members.length === 0) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Parse form data
+    const formData = await request.formData();
+    const file = formData.get("file") as File;
+    const comment = formData.get("comment") as string | null;
+
+    if (!file) {
+      return NextResponse.json({ error: "File is required" }, { status: 400 });
+    }
+
+    // Convert File to Buffer for upload
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Generate unique key for version
+    const timestamp = Date.now();
+    const fileKey = `teams/${document.teamId}/documents/${documentId}/versions/${timestamp}-${file.name}`;
+
+    // Upload new file version using storage provider
+    const storageProvider = getStorageProvider();
+    const uploadResult = await storageProvider.upload(fileKey, buffer, {
+      contentType: file.type,
+      metadata: {
+        documentId,
+        originalName: file.name,
+        uploadedBy: user.id,
+      },
+    });
+
+    // Get next version number
+    const latestVersion = await prisma.documentVersion.findFirst({
+      where: { documentId },
+      orderBy: { versionNumber: "desc" },
+      select: { versionNumber: true },
+    });
+
+    const nextVersionNumber = (latestVersion?.versionNumber || 0) + 1;
+
+    // Create new version
+    const newVersion = await prisma.documentVersion.create({
+      data: {
+        documentId,
+        versionNumber: nextVersionNumber,
+        file: uploadResult.key,
+        fileSize: file.size,
+        fileName: file.name,
+        fileType: file.type,
+        comment: comment || null,
+        createdById: user.id,
+      },
+    });
+
+    // Update document's version count and file reference
+    await prisma.document.update({
+      where: { id: documentId },
+      data: {
+        versions: nextVersionNumber,
+        file: uploadResult.key,
+        fileSize: file.size,
+        updatedAt: new Date(),
+      },
+    });
+
+    // Create audit log
+    await createAuditLog({
+      action: "DOCUMENT_UPDATED",
+      resourceType: "document",
+      resourceId: documentId,
+      userId: user.id,
+      teamId: document.teamId,
+      metadata: {
+        versionNumber: nextVersionNumber,
+        comment: comment || undefined,
+        fileName: file.name,
+      },
+      request,
+    });
+
+    return NextResponse.json({ version: newVersion }, { status: 201 });
+  } catch (error) {
+    console.error("Error creating document version:", error);
+    return NextResponse.json(
+      { error: "Failed to create version" },
+      { status: 500 }
+    );
+  }
+}

@@ -1,0 +1,24 @@
+
+> dataroom@0.1.0 build
+> next build
+
+   ▲ Next.js 16.0.3 (Turbopack)
+   - Environments: .env.local, .env
+   - Experiments (use with caution):
+     · serverActions
+
+ ⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 19.4s
+   Running TypeScript ...
+Failed to compile.
+
+Type error: Type 'typeof import("/Users/f.gallo/Documents/Copilot/dataroom/app/api/documents/[documentId]/versions/[versionId]/download/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/documents/[documentId]/versions/[versionId]/download">'.
+  Types of property 'GET' are incompatible.
+    Type '(request: NextRequest, { params }: { params: { documentId: string; versionId: string; }; }) => Promise<NextResponse<unknown>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ documentId: string; versionId: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ documentId: string; versionId: string; }>; }' is not assignable to type '{ params: { documentId: string; versionId: string; }; }'.
+          Types of property 'params' are incompatible.
+            Type 'Promise<{ documentId: string; versionId: string; }>' is missing the following properties from type '{ documentId: string; versionId: string; }': documentId, versionId
+
+Next.js build worker exited with code: 1 and signal: null

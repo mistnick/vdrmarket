@@ -1,0 +1,691 @@
+// DataRoom - Prisma Schema
+// Based on Papermark's data model
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+
+
+
+// ============================================
+// User Management & Authentication
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String? // For email/password authentication
+
+  // Password reset
+  passwordResetToken  String?   @unique
+  passwordResetExpiry DateTime?
+
+  // Two-factor authentication
+  twoFactorEnabled Boolean @default(false)
+  twoFactorSecret  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  accounts          Account[]
+  sessions          Session[]
+  teams             TeamMember[]
+  documents         Document[]
+  documentVersions  DocumentVersion[] @relation("DocumentVersions")
+  folders           Folder[]
+  links             Link[]
+  views             View[]
+  notifications     Notification[]
+  notificationPreference NotificationPreference?
+  auditLogs         AuditLog[]
+  recoveryCodes     RecoveryCode[]
+  questionsAsked    Question[]        @relation("QuestionsAsked")
+  questionsAssigned Question[]        @relation("QuestionsAssigned")
+  answersProvided   Answer[]          @relation("AnswersProvided")
+  commentsCreated   Comment[]         @relation("CommentsCreated")
+  commentMentions   CommentMention[]  @relation("CommentMentions")
+
+  @@map("users")
+}
+
+model RecoveryCode {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  used      Boolean  @default(false)
+  usedAt    DateTime?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("recovery_codes")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  
+  // Session metadata for security tracking
+  ipAddress    String?
+  userAgent    String?  @db.Text
+  device       String?  // e.g., "Desktop", "Mobile", "Tablet"
+  browser      String?  // e.g., "Chrome", "Safari", "Firefox"
+  os           String?  // e.g., "Windows", "macOS", "iOS"
+  location     String?  // e.g., "New York, US"
+  
+  createdAt    DateTime @default(now())
+  lastActivity DateTime @default(now())
+  
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================
+// Team/Workspace Management
+// ============================================
+
+model Team {
+  id   String  @id @default(cuid())
+  name String
+  slug String  @unique
+  logo String?
+  plan String  @default("free") // free, pro, business, enterprise
+
+  // Branding
+  brandColor       String? // Primary brand color (hex)
+  accentColor      String? // Accent color (hex)
+  customDomain     String? // Custom domain for links
+  watermarkEnabled Boolean @default(true)
+  watermarkText    String? // Custom watermark text template
+  watermarkOpacity Float?  @default(0.3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  members     TeamMember[]
+  documents   Document[]
+  folders     Folder[]
+  dataRooms   DataRoom[]
+  invitations TeamInvitation[]
+  auditLogs   AuditLog[]
+  tags        Tag[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  role      String   @default("member") // owner, admin, member, viewer
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@map("team_members")
+}
+
+model TeamInvitation {
+  id        String   @id @default(cuid())
+  teamId    String
+  email     String
+  role      String   @default("member")
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, email])
+  @@map("team_invitations")
+}
+
+// ============================================
+// Document Management
+// ============================================
+
+model Document {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  file        String // Storage path/key
+  fileType    String // pdf, docx, xlsx, etc.
+  fileSize    Int // bytes
+  versions    Int      @default(1)
+  teamId      String
+  ownerId     String
+  folderId    String?
+  dataRoomId  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  team             Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  owner            User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  folder           Folder?           @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  dataRoom         DataRoom?         @relation(fields: [dataRoomId], references: [id], onDelete: SetNull)
+  links            Link[]
+  views            View[]
+  versions_history DocumentVersion[]
+  metadata         DocumentMetadata[]
+  tags             DocumentTag[]
+  comments         Comment[]
+
+  @@index([teamId])
+  @@index([ownerId])
+  @@index([folderId])
+  @@index([dataRoomId])
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id            String   @id @default(cuid())
+  documentId    String
+  versionNumber Int
+  file          String   // Storage path/key for this version
+  fileSize      Int      // Size in bytes
+  fileName      String?  // Original filename for this version
+  fileType      String?  // MIME type
+  comment       String?  @db.Text // Version comment/description
+  metadata      Json?    // Version-specific metadata
+  createdById   String   // User who created this version
+  createdAt     DateTime @default(now())
+
+  document  Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdBy User     @relation("DocumentVersions", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, versionNumber])
+  @@index([documentId])
+  @@index([createdById])
+  @@map("document_versions")
+}
+
+// ============================================
+// Folder Structure
+// ============================================
+
+model Folder {
+  id         String   @id @default(cuid())
+  name       String
+  teamId     String
+  ownerId    String
+  parentId   String?
+  dataRoomId String?
+  path       String // /parent/child for easy querying
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  team      Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  parent    Folder?    @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Folder[]   @relation("FolderHierarchy")
+  dataRoom  DataRoom?  @relation(fields: [dataRoomId], references: [id], onDelete: SetNull)
+  documents Document[]
+
+  @@index([teamId])
+  @@index([parentId])
+  @@index([dataRoomId])
+  @@map("folders")
+}
+
+// ============================================
+// Virtual Data Room
+// ============================================
+
+model DataRoom {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  teamId      String
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  team         Team                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  folders      Folder[]
+  documents    Document[]
+  permissions  DataRoomPermission[]
+  questions    Question[]
+  qaCategories QACategory[]
+
+  @@index([teamId])
+  @@map("data_rooms")
+}
+
+model DataRoomPermission {
+  id         String   @id @default(cuid())
+  dataRoomId String
+  email      String
+  level      String   @default("viewer") // viewer, editor, admin
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  dataRoom DataRoom @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
+
+  @@unique([dataRoomId, email])
+  @@map("data_room_permissions")
+}
+
+// ============================================
+// Link Sharing & Access Control
+// ============================================
+
+model Link {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  documentId  String
+  name        String?
+  description String?
+  createdBy   String
+  isActive    Boolean @default(true)
+
+  // Access Control
+  password           String?
+  expiresAt          DateTime?
+  allowDownload      Boolean   @default(true)
+  allowNotification  Boolean   @default(true)
+  emailProtected     Boolean   @default(false)
+  emailAuthenticated Boolean   @default(false)
+  domainSlug         String?
+
+  // Tracking
+  enableTracking Boolean @default(true)
+  enableFeedback Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  document      Document           @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  creator       User               @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  views         View[]
+  allowedEmails LinkAllowedEmail[]
+
+  @@index([documentId])
+  @@index([slug])
+  @@map("links")
+}
+
+model LinkAllowedEmail {
+  id        String   @id @default(cuid())
+  linkId    String
+  email     String
+  createdAt DateTime @default(now())
+
+  link Link @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@unique([linkId, email])
+  @@map("link_allowed_emails")
+}
+
+// ============================================
+// View Tracking & Analytics
+// ============================================
+
+model View {
+  id          String  @id @default(cuid())
+  linkId      String
+  documentId  String
+  viewerEmail String?
+  viewerName  String?
+  verified    Boolean @default(false)
+
+  // Device & Location Info
+  ipAddress String?
+  userAgent String?
+  country   String?
+  city      String?
+
+  // Engagement Metrics
+  viewedAt       DateTime  @default(now())
+  duration       Int? // seconds
+  completionRate Float? // 0-100%
+  downloadedAt   DateTime?
+
+  link     Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  viewer   User?    @relation(fields: [viewerEmail], references: [email])
+
+  @@index([linkId])
+  @@index([documentId])
+  @@index([viewedAt])
+  @@map("views")
+}
+
+// ============================================
+// Audit Trail & Activity Log
+// ============================================
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  teamId       String?
+  userId       String?
+  action       String // created, updated, deleted, viewed, shared, downloaded
+  resourceType String // document, folder, link, dataroom, team
+  resourceId   String
+  metadata     Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([teamId])
+  @@index([userId])
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================
+// Q&A System
+// ============================================
+
+model Question {
+  id           String   @id @default(cuid())
+  dataRoomId   String
+  categoryId   String?
+  questionText String   @db.Text
+  status       String   @default("pending") // pending, answered, closed
+  priority     String   @default("normal") // low, normal, high, urgent
+  askedById    String
+  assignedToId String?
+  bidderGroup  String?  // For bidder isolation in M&A deals
+  isPrivate    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  dataRoom   DataRoom    @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
+  category   QACategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  askedBy    User        @relation("QuestionsAsked", fields: [askedById], references: [id], onDelete: Cascade)
+  assignedTo User?       @relation("QuestionsAssigned", fields: [assignedToId], references: [id], onDelete: SetNull)
+  answers    Answer[]
+
+  @@index([dataRoomId])
+  @@index([status])
+  @@index([bidderGroup])
+  @@index([askedById])
+  @@index([assignedToId])
+  @@map("questions")
+}
+
+model Answer {
+  id         String   @id @default(cuid())
+  questionId String
+  answerText String   @db.Text
+  answeredBy String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user     User     @relation("AnswersProvided", fields: [answeredBy], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+  @@index([answeredBy])
+  @@map("answers")
+}
+
+model QACategory {
+  id          String   @id @default(cuid())
+  dataRoomId  String
+  name        String
+  description String?
+  color       String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  dataRoom  DataRoom   @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
+  questions Question[]
+
+  @@unique([dataRoomId, name])
+  @@index([dataRoomId])
+  @@map("qa_categories")
+}
+
+// ============================================
+// Document Metadata & Tags
+// ============================================
+
+model DocumentMetadata {
+  id         String   @id @default(cuid())
+  documentId String
+  key        String
+  value      String   @db.Text
+  type       String   @default("text") // text, number, date, boolean, select
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, key])
+  @@index([documentId])
+  @@index([key])
+  @@map("document_metadata")
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  teamId    String
+  name      String
+  color     String?
+  createdAt DateTime @default(now())
+
+  team      Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  documents DocumentTag[]
+
+  @@unique([teamId, name])
+  @@index([teamId])
+  @@map("tags")
+}
+
+model DocumentTag {
+  id         String   @id @default(cuid())
+  documentId String
+  tagId      String
+  createdAt  DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, tagId])
+  @@index([documentId])
+  @@index([tagId])
+  @@map("document_tags")
+}
+
+// ============================================
+// Document Comments & Collaboration
+// ============================================
+
+model Comment {
+  id         String    @id @default(cuid())
+  documentId String
+  userId     String
+  content    String    @db.Text
+  parentId   String?   // For threaded replies
+  isPrivate  Boolean   @default(false)
+  resolved   Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  document Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User             @relation("CommentsCreated", fields: [userId], references: [id], onDelete: Cascade)
+  parent   Comment?         @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[]        @relation("CommentThread")
+  mentions CommentMention[]
+
+  @@index([documentId])
+  @@index([userId])
+  @@index([parentId])
+  @@map("comments")
+}
+
+model CommentMention {
+  id        String    @id @default(cuid())
+  commentId String
+  userId    String
+  read      Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation("CommentMentions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
+  @@index([userId, read])
+  @@map("comment_mentions")
+}
+
+// ============================================
+// Notifications
+// ============================================
+
+// Notifications
+// ============================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String // link_viewed, document_shared, team_invitation
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id      String @id @default(cuid())
+  userId  String @unique
+  
+  // Email notifications
+  emailEnabled          Boolean @default(true)
+  emailLinkViewed       Boolean @default(true)
+  emailDocumentShared   Boolean @default(true)
+  emailTeamInvitation   Boolean @default(true)
+  emailCommentMention   Boolean @default(true)
+  emailQAActivity       Boolean @default(true)
+  
+  // In-app notifications
+  inAppEnabled          Boolean @default(true)
+  
+  // Desktop notifications
+  desktopEnabled        Boolean @default(false)
+  
+  // Digest settings
+  digestEnabled         Boolean @default(false)
+  digestFrequency       String  @default("daily") // daily, weekly
+  digestTime            String  @default("09:00") // HH:mm format
+  
+  // Sound
+  soundEnabled          Boolean @default(true)
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@map("notification_preferences")
+}
+
+// ============================================
+// Permissions & Access Control
+// ============================================
+
+model Permission {
+  id          String   @id @default(cuid())
+  name        String   @unique // documents.create, documents.delete, etc.
+  description String?
+  category    String   // documents, folders, links, datarooms, teams, settings
+  createdAt   DateTime @default(now())
+  
+  rolePermissions RolePermission[]
+  userPermissions UserPermission[]
+  
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String   @id @default(cuid())
+  role         String   // owner, admin, member, viewer
+  permissionId String
+  granted      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  
+  @@unique([role, permissionId])
+  @@index([role])
+  @@map("role_permissions")
+}
+
+model UserPermission {
+  id           String   @id @default(cuid())
+  userId       String
+  teamId       String
+  permissionId String
+  granted      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, teamId, permissionId])
+  @@index([userId, teamId])
+  @@map("user_permissions")
+}
