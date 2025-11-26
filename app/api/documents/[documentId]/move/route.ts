@@ -13,7 +13,7 @@ export async function PATCH(
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { folderId } = await req.json();
+        const { folderId, dataRoomId } = await req.json();
 
         // Get user
         const user = await prisma.user.findUnique({
@@ -63,10 +63,33 @@ export async function PATCH(
             }
         }
 
+        // If dataRoomId is provided, verify it belongs to the same team
+        if (dataRoomId) {
+            const dataRoom = await prisma.dataRoom.findUnique({
+                where: { id: dataRoomId },
+            });
+
+            if (!dataRoom || dataRoom.teamId !== document.teamId) {
+                return NextResponse.json(
+                    { error: "Invalid data room" },
+                    { status: 400 }
+                );
+            }
+        }
+
+        // Build update data
+        const updateData: { folderId: string | null; dataRoomId?: string | null } = {
+            folderId: folderId || null,
+        };
+        
+        if (dataRoomId !== undefined) {
+            updateData.dataRoomId = dataRoomId || null;
+        }
+
         // Update document
         const updatedDocument = await prisma.document.update({
             where: { id: documentId },
-            data: { folderId: folderId || null },
+            data: updateData,
         });
 
         // Create audit log
@@ -80,6 +103,8 @@ export async function PATCH(
                 metadata: {
                     fromFolderId: document.folderId,
                     toFolderId: folderId,
+                    fromDataRoomId: document.dataRoomId,
+                    toDataRoomId: dataRoomId,
                 },
             },
         });

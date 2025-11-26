@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Shield, FileText, Download, Eye, Clock, Loader2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { SecureViewer } from "@/components/view/secure-viewer";
 
 export default function PublicLinkViewerPage() {
   const params = useParams();
@@ -185,25 +186,13 @@ export default function PublicLinkViewerPage() {
 
           {/* Document Viewer */}
           <Card>
-            <CardContent className="p-8">
-              <div className="text-center py-12">
-                <FileText className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Document Viewer</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Document preview will be displayed here
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Document ID: {documentData.documentId}
-                </p>
-                {hasScreenshotProtection && (
-                  <Alert className="mt-4 max-w-md mx-auto">
-                    <Shield className="h-4 w-4" />
-                    <AlertDescription className="text-xs">
-                      This document is protected. Screenshots and copying are disabled.
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
+            <CardContent className="p-0 overflow-hidden">
+              <SecureViewer
+                url={documentData.url}
+                fileType={documentData.fileType}
+                allowDownload={documentData.allowDownload}
+                fileName={documentData.documentName}
+              />
             </CardContent>
           </Card>
 

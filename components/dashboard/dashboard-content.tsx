@@ -49,7 +49,7 @@ export function DashboardContent({
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" asChild>
-                        <Link href="/datarooms/new">
+                        <Link href="/datarooms/create">
                             <FolderPlus className="mr-2 h-4 w-4" />
                             Nuova Data Room
                         </Link>
@@ -142,7 +142,7 @@ export function DashboardContent({
                             <ArrowRight className="h-4 w-4 text-muted-foreground" />
                         </Link>
                         <Link 
-                            href="/datarooms/new"
+                            href="/datarooms/create"
                             className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-accent"
                         >
                             <FolderPlus className="h-5 w-5 text-muted-foreground" />
@@ -153,7 +153,7 @@ export function DashboardContent({
                             <ArrowRight className="h-4 w-4 text-muted-foreground" />
                         </Link>
                         <Link 
-                            href="/links/new"
+                            href="/links/create"
                             className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-accent"
                         >
                             <Link2 className="h-5 w-5 text-muted-foreground" />

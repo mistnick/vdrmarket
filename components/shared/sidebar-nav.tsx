@@ -6,13 +6,15 @@ import {
     LayoutDashboard,
     FileText,
     FolderOpen,
+    FolderTree,
     Database,
     Link2,
-    Users,
+    UserCheck,
     Settings,
     LogOut,
     ChevronLeft,
     Building2,
+    ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -22,9 +24,11 @@ const navigation = [
     { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { title: "Documenti", href: "/documents", icon: FileText },
     { title: "Cartelle", href: "/folders", icon: FolderOpen },
+    { title: "File Explorer", href: "/file-explorer", icon: FolderTree },
     { title: "Data Rooms", href: "/datarooms", icon: Database },
     { title: "Link", href: "/links", icon: Link2 },
-    { title: "Team", href: "/teams", icon: Users },
+    { title: "Partecipanti", href: "/participants", icon: UserCheck },
+    { title: "Report", href: "/audit-logs", icon: ClipboardList },
     { title: "Impostazioni", href: "/settings", icon: Settings },
 ];
 

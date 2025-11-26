@@ -64,6 +64,7 @@ export default async function DashboardPage() {
   });
 
   // Get active links count
+  // A link is active if isActive=true AND (expiresAt is null OR expiresAt > now)
   const activeLinks = await prisma.link.count({
     where: {
       document: {
@@ -75,9 +76,11 @@ export default async function DashboardPage() {
           },
         },
       },
-      expiresAt: {
-        gt: new Date(),
-      },
+      isActive: true,
+      OR: [
+        { expiresAt: null },
+        { expiresAt: { gt: new Date() } },
+      ],
     },
   });
 

@@ -95,6 +95,7 @@ export async function POST(request: Request) {
     const file = formData.get("file") as File;
     const teamId = formData.get("teamId") as string;
     const folderId = formData.get("folderId") as string | null;
+    const dataRoomId = formData.get("dataRoomId") as string | null;
     const name = formData.get("name") as string;
     const description = formData.get("description") as string | null;
 
@@ -158,11 +159,13 @@ export async function POST(request: Request) {
         teamId,
         ownerId: user.id,
         folderId: folderId || null,
+        dataRoomId: dataRoomId || null,
       },
       include: {
         owner: true,
         team: true,
         folder: true,
+        dataRoom: true,
       },
     });
 
