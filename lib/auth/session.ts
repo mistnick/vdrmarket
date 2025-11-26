@@ -51,12 +51,20 @@ export async function createSession(user: User): Promise<string> {
 import { auth } from "@/lib/auth";
 
 // List of auth cookies to clear on JWT errors
+// Includes all possible NextAuth cookie name variations
 const AUTH_COOKIES_TO_CLEAR = [
   "authjs.session-token",
-  "authjs.callback-url", 
+  "authjs.callback-url",
   "authjs.csrf-token",
   "__Secure-authjs.session-token",
+  "__Secure-authjs.callback-url",
   "__Host-authjs.csrf-token",
+  "next-auth.session-token",
+  "next-auth.callback-url",
+  "next-auth.csrf-token",
+  "__Secure-next-auth.session-token",
+  "__Secure-next-auth.callback-url",
+  "__Host-next-auth.csrf-token",
 ];
 
 /**
@@ -64,32 +72,32 @@ const AUTH_COOKIES_TO_CLEAR = [
  */
 function isJWTError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
-  
+
   const err = error as Record<string, unknown>;
-  
+
   // Check error name
   if (err.name === 'JWTSessionError' || err.name === 'JWEDecryptionFailed') {
     return true;
   }
-  
+
   // Check error message
   const message = String(err.message || '');
-  if (message.includes('decryption') || 
-      message.includes('JWTSessionError') ||
-      message.includes('no matching')) {
+  if (message.includes('decryption') ||
+    message.includes('JWTSessionError') ||
+    message.includes('no matching')) {
     return true;
   }
-  
+
   // Check cause
   const cause = err.cause as Record<string, unknown> | undefined;
   if (cause) {
     const causeMessage = String(cause.message || '');
-    if (causeMessage.includes('decryption') || 
-        causeMessage.includes('no matching')) {
+    if (causeMessage.includes('decryption') ||
+      causeMessage.includes('no matching')) {
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -99,22 +107,30 @@ function isJWTError(error: unknown): boolean {
 async function clearAuthCookies(): Promise<void> {
   try {
     const cookieStore = await cookies();
+    const existingCookies = cookieStore.getAll();
+    console.warn("[SESSION] Clearing invalid JWT cookies. Existing cookies:",
+      existingCookies.map(c => c.name).join(", "));
+
+    let clearedCount = 0;
     for (const name of AUTH_COOKIES_TO_CLEAR) {
       try {
         cookieStore.delete(name);
-      } catch {
+        clearedCount++;
+      } catch (err) {
         // Ignore errors when deleting individual cookies
+        console.debug(`[SESSION] Could not delete cookie: ${name}`);
       }
     }
-    console.info("[SESSION] Cleared auth cookies due to invalid JWT");
-  } catch {
-    // Ignore if we can't access cookies
+
+    console.info(`[SESSION] Cleared ${clearedCount} auth cookies due to invalid JWT`);
+  } catch (err) {
+    console.error("[SESSION] Failed to access cookie store:", err);
   }
 }
 
 export async function getSession(): Promise<SessionData | null> {
   let cookieStore: Awaited<ReturnType<typeof cookies>> | null = null;
-  
+
   try {
     cookieStore = await cookies();
   } catch {
@@ -141,7 +157,7 @@ export async function getSession(): Promise<SessionData | null> {
         };
       } else if (session) {
         // Session expired, clean up
-        await prisma.session.delete({ where: { sessionToken } }).catch(() => {});
+        await prisma.session.delete({ where: { sessionToken } }).catch(() => { });
         try {
           cookieStore.delete(SESSION_COOKIE_NAME);
         } catch {
