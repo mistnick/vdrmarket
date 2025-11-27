@@ -156,14 +156,41 @@ else
     log_info ".env file already exists, skipping creation"
 fi
 
-# Step 8: Build and start containers
+# Step 8: Generate SSL certificates if not present
+log_info "Checking SSL certificates..."
+mkdir -p "$APP_DIR/nginx/certs"
+
+if [ ! -f "$APP_DIR/nginx/certs/server.crt" ]; then
+    log_info "Generating self-signed SSL certificates..."
+    
+    # Get server hostname or IP
+    SERVER_DOMAIN=$(hostname -f 2>/dev/null || curl -s ifconfig.me 2>/dev/null || echo "localhost")
+    
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout "$APP_DIR/nginx/certs/server.key" \
+        -out "$APP_DIR/nginx/certs/server.crt" \
+        -subj "/C=IT/ST=Italy/L=Milan/O=DataRoom/OU=IT/CN=$SERVER_DOMAIN" \
+        -addext "subjectAltName=DNS:$SERVER_DOMAIN,DNS:localhost,IP:127.0.0.1" 2>/dev/null || \
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout "$APP_DIR/nginx/certs/server.key" \
+        -out "$APP_DIR/nginx/certs/server.crt" \
+        -subj "/C=IT/ST=Italy/L=Milan/O=DataRoom/OU=IT/CN=$SERVER_DOMAIN"
+    
+    chmod 600 "$APP_DIR/nginx/certs/server.key"
+    chmod 644 "$APP_DIR/nginx/certs/server.crt"
+    log_success "SSL certificates generated for: $SERVER_DOMAIN"
+else
+    log_info "SSL certificates already exist"
+fi
+
+# Step 9: Build and start containers
 log_info "Building Docker images..."
 docker compose -f docker-compose.prod.yml build --no-cache
 
 log_info "Starting containers..."
 docker compose -f docker-compose.prod.yml up -d
 
-# Step 9: Wait for services to be healthy
+# Step 10: Wait for services to be healthy
 log_info "Waiting for services to be healthy..."
 sleep 10
 
@@ -182,7 +209,7 @@ while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
 done
 echo ""
 
-# Step 10: Run database migrations
+# Step 11: Run database migrations
 log_info "Running database migrations..."
 
 cd "$APP_DIR"
@@ -283,17 +310,22 @@ SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
 
 echo ""
 log_info "Application URLs:"
-echo "  - Web App:    http://${SERVER_IP}:3000"
+echo "  - HTTPS:      https://${SERVER_IP} (self-signed cert)"
+echo "  - HTTP:       http://${SERVER_IP} (redirects to HTTPS)"
+echo ""
+log_info "Test credentials:"
+echo "  - Email:      admin@dataroom.com"
+echo "  - Password:   Admin123!"
 echo ""
 log_info "Useful commands:"
 echo "  - View logs:    docker compose -f docker-compose.prod.yml logs -f"
+echo "  - View app logs: docker compose -f docker-compose.prod.yml logs -f app"
 echo "  - Restart:      docker compose -f docker-compose.prod.yml restart"
 echo "  - Stop:         docker compose -f docker-compose.prod.yml down"
 echo "  - Update:       git pull && docker compose -f docker-compose.prod.yml up -d --build"
 echo ""
-log_warning "Remember to:"
-echo "  1. Configure a reverse proxy (nginx) with SSL for production"
-echo "  2. Update NEXTAUTH_URL in .env with your domain"
-echo "  3. Set up firewall rules (ufw)"
-echo "  4. Configure automatic backups for PostgreSQL"
+log_warning "Note:"
+echo "  - Self-signed SSL certificate will show browser warning (click 'Advanced' > 'Proceed')"
+echo "  - For production, replace with Let's Encrypt certificate"
+echo "  - Update NEXTAUTH_URL in .env with your domain"
 echo ""
