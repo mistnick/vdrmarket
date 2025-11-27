@@ -30,6 +30,9 @@ docker volume create certbot_www 2>/dev/null || true
 # Start nginx in HTTP-only mode for ACME challenge
 echo -e "${YELLOW}Step 3/6: Starting nginx for ACME challenge...${NC}"
 
+# Cleanup any existing temp container
+docker rm -f dataroom-nginx-temp 2>/dev/null || true
+
 # Create temporary nginx config without SSL
 cat > nginx/nginx-init.conf << 'EOF'
 server {
