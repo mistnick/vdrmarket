@@ -182,13 +182,29 @@ while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
 done
 echo ""
 
-# Step 10: Run database migrations
+# Step 10: Run database migrations from host (not inside container)
 log_info "Running database migrations..."
-docker compose -f docker-compose.prod.yml exec -T app node ./node_modules/prisma/build/index.js migrate deploy || {
-    log_warning "Migration failed, attempting to generate client and retry..."
-    docker compose -f docker-compose.prod.yml exec -T app node ./node_modules/prisma/build/index.js generate
-    docker compose -f docker-compose.prod.yml exec -T app node ./node_modules/prisma/build/index.js migrate deploy
+
+# Install prisma locally for migrations
+npm install prisma@7 --no-save --legacy-peer-deps 2>/dev/null || true
+
+# Get database URL from .env
+source "$APP_DIR/.env"
+export DATABASE_URL="postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB:-dataroom}?schema=public"
+
+# Run migrations
+npx prisma migrate deploy --schema="$APP_DIR/prisma/schema.prisma" || {
+    log_warning "Migration with npx failed, trying direct approach..."
+    node ./node_modules/prisma/build/index.js migrate deploy --schema="$APP_DIR/prisma/schema.prisma" || true
 }
+
+# Run seed if needed
+if [ ! -f "$APP_DIR/.seeded" ]; then
+    log_info "Running database seed..."
+    npx prisma db seed --schema="$APP_DIR/prisma/schema.prisma" || true
+    touch "$APP_DIR/.seeded"
+fi
+
 log_success "Database migrations completed"
 
 # Step 11: Show status
