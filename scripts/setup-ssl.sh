@@ -18,13 +18,17 @@ COMPOSE_FILE="docker-compose.production.yml"
 echo -e "${YELLOW}SSL Certificate Setup for $DOMAIN${NC}"
 echo ""
 
+# Create Docker network if it doesn't exist
+echo -e "${YELLOW}Step 1/6: Creating Docker network...${NC}"
+docker network create dataroom-network 2>/dev/null || echo "Network already exists"
+
 # Check if certbot volumes exist
-echo -e "${YELLOW}Step 1/5: Creating certbot volumes...${NC}"
+echo -e "${YELLOW}Step 2/6: Creating certbot volumes...${NC}"
 docker volume create certbot_data 2>/dev/null || true
 docker volume create certbot_www 2>/dev/null || true
 
 # Start nginx in HTTP-only mode for ACME challenge
-echo -e "${YELLOW}Step 2/5: Starting nginx for ACME challenge...${NC}"
+echo -e "${YELLOW}Step 3/6: Starting nginx for ACME challenge...${NC}"
 
 # Create temporary nginx config without SSL
 cat > nginx/nginx-init.conf << 'EOF'
@@ -55,7 +59,7 @@ docker run -d \
     -v certbot_www:/var/www/certbot \
     nginx:alpine
 
-echo -e "${YELLOW}Step 3/5: Obtaining SSL certificate from Let's Encrypt...${NC}"
+echo -e "${YELLOW}Step 4/6: Obtaining SSL certificate from Let's Encrypt...${NC}"
 docker run --rm \
     --network dataroom-network \
     -v certbot_data:/etc/letsencrypt \
@@ -69,12 +73,12 @@ docker run --rm \
     -d $DOMAIN \
     -d simplevdr.com
 
-echo -e "${YELLOW}Step 4/5: Stopping temporary nginx...${NC}"
+echo -e "${YELLOW}Step 5/6: Stopping temporary nginx...${NC}"
 docker stop dataroom-nginx-temp
 docker rm dataroom-nginx-temp
 rm nginx/nginx-init.conf
 
-echo -e "${YELLOW}Step 5/5: Starting production stack with SSL...${NC}"
+echo -e "${YELLOW}Step 6/6: Starting production stack with SSL...${NC}"
 docker-compose -f $COMPOSE_FILE up -d nginx
 
 echo ""
