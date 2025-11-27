@@ -61,16 +61,12 @@ RUN mkdir -p .next logs && \
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy Prisma files and ALL required dependencies for migrations
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
+# Copy ALL node_modules to ensure Prisma CLI works
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+
+# Copy Prisma files
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
-
-# Copy additional Prisma CLI dependencies
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pathe ./node_modules/pathe
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma/dev ./node_modules/@prisma/dev
 
 
 

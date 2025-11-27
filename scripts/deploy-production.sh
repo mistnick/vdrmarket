@@ -1,331 +1,89 @@
 #!/bin/bash
-#
-# DataRoom Production Deployment Script
-# This script sets up and deploys the DataRoom application on a production server
-#
-# Usage: ./deploy-production.sh
-#
-set -e
+
+# Production Deployment Script for DataRoom
+# This script rebuilds the entire Docker environment for production
+
+set -e  # Exit on error
+
+echo "🚀 Starting DataRoom Production Deployment..."
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
-log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
-log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
-
 # Configuration
-APP_DIR="/opt/dataroom"
-REPO_URL="https://github.com/mistnick/vdrmarket.git"
-BRANCH="main"
+COMPOSE_FILE="docker-compose.production.yml"
+ENV_FILE=".env.production"
 
-echo ""
-echo "=============================================="
-echo "    DataRoom Production Deployment Script"
-echo "=============================================="
-echo ""
-
-# Check if running as root
-if [[ $EUID -ne 0 ]]; then
-   log_error "This script must be run as root"
-   exit 1
+# Check if .env.production exists
+if [ ! -f "$ENV_FILE" ]; then
+    echo -e "${RED}Error: $ENV_FILE not found!${NC}"
+    echo "Please create a .env.production file with the required environment variables."
+    exit 1
 fi
 
-# Step 1: Update system
-log_info "Updating system packages..."
-apt-get update -qq
-apt-get upgrade -y -qq
-log_success "System updated"
+echo -e "${YELLOW}Step 1/7: Stopping existing containers...${NC}"
+docker-compose -f $COMPOSE_FILE down
 
-# Step 2: Install Docker if not present
-if ! command -v docker &> /dev/null; then
-    log_info "Installing Docker..."
-    curl -fsSL https://get.docker.com | sh
-    systemctl enable docker
-    systemctl start docker
-    log_success "Docker installed"
-else
-    log_info "Docker already installed"
-fi
+echo -e "${YELLOW}Step 2/7: Removing old images...${NC}"
+docker rmi -f dataroom-app:latest 2>/dev/null || true
 
-# Step 3: Install Docker Compose plugin if not present
-if ! docker compose version &> /dev/null; then
-    log_info "Installing Docker Compose plugin..."
-    apt-get install -y -qq docker-compose-plugin
-    log_success "Docker Compose plugin installed"
-else
-    log_info "Docker Compose already installed"
-fi
+echo -e "${YELLOW}Step 3/7: Pulling latest code from GitHub...${NC}"
+git pull origin main || git pull origin master
 
-# Step 4: Install Git if not present
-if ! command -v git &> /dev/null; then
-    log_info "Installing Git..."
-    apt-get install -y -qq git
-    log_success "Git installed"
-else
-    log_info "Git already installed"
-fi
+echo -e "${YELLOW}Step 4/7: Building Docker images (no cache)...${NC}"
+docker-compose -f $COMPOSE_FILE build --no-cache
 
-# Step 5: Create app directory
-log_info "Setting up application directory..."
-mkdir -p "$APP_DIR"
-cd "$APP_DIR"
+echo -e "${YELLOW}Step 5/7: Starting containers...${NC}"
+docker-compose -f $COMPOSE_FILE up -d
 
-# Step 6: Clone or update repository
-if [ -d "$APP_DIR/.git" ]; then
-    log_info "Updating existing repository..."
-    git fetch origin
-    git reset --hard origin/$BRANCH
-elif [ "$(ls -A $APP_DIR 2>/dev/null)" ]; then
-    log_info "Directory not empty, cleaning and cloning..."
-    # Backup .env if exists
-    [ -f "$APP_DIR/.env" ] && cp "$APP_DIR/.env" /tmp/dataroom-env-backup
-    rm -rf "$APP_DIR"/*
-    rm -rf "$APP_DIR"/.[!.]* 2>/dev/null || true
-    git clone -b $BRANCH $REPO_URL .
-    # Restore .env if existed
-    [ -f /tmp/dataroom-env-backup ] && mv /tmp/dataroom-env-backup "$APP_DIR/.env"
-else
-    log_info "Cloning repository..."
-    git clone -b $BRANCH $REPO_URL .
-fi
-log_success "Repository ready"
-
-# Step 7: Create .env file if not exists
-if [ ! -f "$APP_DIR/.env" ]; then
-    log_info "Creating .env file..."
-    
-    # Generate secrets
-    AUTH_SECRET=$(openssl rand -base64 32)
-    POSTGRES_PASSWORD=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
-    REDIS_PASSWORD=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
-    
-    cat > "$APP_DIR/.env" << EOF
-# DataRoom Production Configuration
-# Generated on $(date)
-
-# ============================================
-# REQUIRED: Update these values
-# ============================================
-
-# Application URL (change to your domain)
-NEXTAUTH_URL=http://$(curl -s ifconfig.me):3000
-
-# ============================================
-# Authentication Secrets (auto-generated)
-# ============================================
-AUTH_SECRET=${AUTH_SECRET}
-NEXTAUTH_SECRET=${AUTH_SECRET}
-
-# ============================================
-# Database Configuration (auto-generated)
-# ============================================
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-POSTGRES_DB=dataroom
-
-# ============================================
-# Redis Configuration (auto-generated)
-# ============================================
-REDIS_PASSWORD=${REDIS_PASSWORD}
-
-# ============================================
-# Storage Configuration (Aruba Cloud Object Storage)
-# ============================================
-AWS_REGION=r1-it
-AWS_ACCESS_KEY_ID=simplevdr-obj
-AWS_SECRET_ACCESS_KEY=-ihh@jf.WnsAY_
-AWS_S3_BUCKET=dataroom
-AWS_ENDPOINT=http://r1-it.storage.cloud.it
-
-# ============================================
-# Optional: Monitoring
-# ============================================
-SENTRY_DSN=
-EOF
-
-    chmod 600 "$APP_DIR/.env"
-    log_success ".env file created"
-    log_warning "Please review and update NEXTAUTH_URL in .env if needed"
-else
-    log_info ".env file already exists, skipping creation"
-fi
-
-# Step 8: Generate SSL certificates if not present
-log_info "Checking SSL certificates..."
-mkdir -p "$APP_DIR/nginx/certs"
-
-if [ ! -f "$APP_DIR/nginx/certs/server.crt" ]; then
-    log_info "Generating self-signed SSL certificates..."
-    
-    # Get server hostname or IP
-    SERVER_DOMAIN=$(hostname -f 2>/dev/null || curl -s ifconfig.me 2>/dev/null || echo "localhost")
-    
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout "$APP_DIR/nginx/certs/server.key" \
-        -out "$APP_DIR/nginx/certs/server.crt" \
-        -subj "/C=IT/ST=Italy/L=Milan/O=DataRoom/OU=IT/CN=$SERVER_DOMAIN" \
-        -addext "subjectAltName=DNS:$SERVER_DOMAIN,DNS:localhost,IP:127.0.0.1" 2>/dev/null || \
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout "$APP_DIR/nginx/certs/server.key" \
-        -out "$APP_DIR/nginx/certs/server.crt" \
-        -subj "/C=IT/ST=Italy/L=Milan/O=DataRoom/OU=IT/CN=$SERVER_DOMAIN"
-    
-    chmod 600 "$APP_DIR/nginx/certs/server.key"
-    chmod 644 "$APP_DIR/nginx/certs/server.crt"
-    log_success "SSL certificates generated for: $SERVER_DOMAIN"
-else
-    log_info "SSL certificates already exist"
-fi
-
-# Step 9: Build and start containers
-log_info "Building Docker images..."
-docker compose -f docker-compose.prod.yml build --no-cache
-
-log_info "Starting containers..."
-docker compose -f docker-compose.prod.yml up -d
-
-# Step 10: Wait for services to be healthy
-log_info "Waiting for services to be healthy..."
+echo -e "${YELLOW}Step 6/7: Waiting for services to be healthy...${NC}"
 sleep 10
-
-MAX_ATTEMPTS=30
-ATTEMPT=0
-while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-    if docker compose -f docker-compose.prod.yml ps | grep -q "healthy"; then
-        HEALTHY_COUNT=$(docker compose -f docker-compose.prod.yml ps | grep -c "healthy" || true)
-        if [ "$HEALTHY_COUNT" -ge 2 ]; then
-            break
-        fi
-    fi
-    ATTEMPT=$((ATTEMPT + 1))
-    echo -n "."
-    sleep 5
-done
-echo ""
-
-# Step 11: Run database migrations
-log_info "Running database migrations..."
-
-cd "$APP_DIR"
-source "$APP_DIR/.env"
 
 # Wait for postgres to be ready
-log_info "Waiting for PostgreSQL..."
-sleep 10
+echo "Waiting for PostgreSQL..."
+for i in {1..30}; do
+    if docker exec dataroom-postgres pg_isready -U postgres -d dataroom > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ PostgreSQL is ready${NC}"
+        break
+    fi
+    echo -n "."
+    sleep 2
+done
 
-# Run migrations using psql directly with the SQL from Prisma migrations
-log_info "Applying database schema..."
+# Wait for app to be ready
+echo "Waiting for application..."
+for i in {1..30}; do
+    if docker exec dataroom-app wget --no-verbose --tries=1 --spider http://localhost:3000/api/health > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ Application is ready${NC}"
+        break
+    fi
+    echo -n "."
+    sleep 2
+done
 
-# Check if tables exist
-TABLE_COUNT=$(docker compose -f docker-compose.prod.yml exec -T postgres psql -U postgres -d dataroom -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name != '_prisma_migrations';" 2>/dev/null | tr -d ' ' || echo "0")
+echo -e "${YELLOW}Step 7/7: Running database migrations and seeding...${NC}"
 
-if [ "$TABLE_COUNT" = "0" ] || [ -z "$TABLE_COUNT" ]; then
-    log_info "Database is empty, applying initial schema..."
-    
-    # Apply each migration SQL file
-    for migration_dir in "$APP_DIR"/prisma/migrations/*/; do
-        if [ -f "${migration_dir}migration.sql" ]; then
-            migration_name=$(basename "$migration_dir")
-            log_info "Applying migration: $migration_name"
-            docker compose -f docker-compose.prod.yml exec -T postgres psql -U postgres -d dataroom -f - < "${migration_dir}migration.sql" 2>/dev/null || true
-            
-            # Record migration in _prisma_migrations table
-            docker compose -f docker-compose.prod.yml exec -T postgres psql -U postgres -d dataroom -c "
-                INSERT INTO _prisma_migrations (id, checksum, migration_name, applied_steps_count, finished_at)
-                VALUES ('$(uuidgen || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo $RANDOM)', 'manual', '$migration_name', 1, NOW())
-                ON CONFLICT DO NOTHING;
-            " 2>/dev/null || true
-        fi
-    done
-    
-    log_success "Schema applied successfully"
-else
-    log_info "Database already has $TABLE_COUNT tables, skipping schema creation"
-fi
+# Run migrations
+echo "Running Prisma migrations..."
+docker exec dataroom-app npx prisma migrate deploy
 
-# Seed the database if needed
-if [ ! -f "$APP_DIR/.seeded" ]; then
-    log_info "Seeding database with test users..."
-    
-    # Create test users directly via SQL
-    docker compose -f docker-compose.prod.yml exec -T postgres psql -U postgres -d dataroom << 'SEED_SQL'
-    -- Create admin user if not exists
-    INSERT INTO users (id, email, name, password, email_verified, created_at, updated_at)
-    VALUES (
-        'admin-user-id-001',
-        'admin@dataroom.com',
-        'Admin User',
-        '$2b$10$K7L1OJ45/4Y2nIvhRVpCe.FSmhDdWoXehVzJptJ/op0lSsvqNu/1u',
-        NOW(),
-        NOW(),
-        NOW()
-    ) ON CONFLICT (email) DO NOTHING;
-    
-    -- Create admin team if not exists
-    INSERT INTO teams (id, name, slug, plan, created_at, updated_at)
-    VALUES (
-        'admin-team-id-001',
-        'Admin Team',
-        'admin-team',
-        'enterprise',
-        NOW(),
-        NOW()
-    ) ON CONFLICT (slug) DO NOTHING;
-    
-    -- Link admin to team
-    INSERT INTO team_members (id, team_id, user_id, role, created_at, updated_at)
-    VALUES (
-        'admin-member-id-001',
-        'admin-team-id-001',
-        'admin-user-id-001',
-        'owner',
-        NOW(),
-        NOW()
-    ) ON CONFLICT DO NOTHING;
-SEED_SQL
-    
-    touch "$APP_DIR/.seeded"
-    log_success "Database seeded (admin@dataroom.com / Admin123!)"
-fi
+# Run seeding
+echo "Seeding database..."
+docker exec dataroom-app npm run prisma:seed || docker exec dataroom-app npx prisma db seed
 
-log_success "Database setup completed"
-
-# Step 11: Show status
+echo -e "${GREEN}✅ Deployment completed successfully!${NC}"
 echo ""
-echo "=============================================="
-log_success "Deployment completed!"
-echo "=============================================="
-echo ""
-docker compose -f docker-compose.prod.yml ps
-echo ""
-
-# Get server IP
-SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
+echo "📊 Container Status:"
+docker-compose -f $COMPOSE_FILE ps
 
 echo ""
-log_info "Application URLs:"
-echo "  - HTTPS:      https://${SERVER_IP} (self-signed cert)"
-echo "  - HTTP:       http://${SERVER_IP} (redirects to HTTPS)"
+echo "📝 View logs with:"
+echo "  docker-compose -f $COMPOSE_FILE logs -f app"
 echo ""
-log_info "Test credentials:"
-echo "  - Email:      admin@dataroom.com"
-echo "  - Password:   Admin123!"
+echo "🔍 Check application health:"
+echo "  curl http://localhost:3000/api/health"
 echo ""
-log_info "Useful commands:"
-echo "  - View logs:    docker compose -f docker-compose.prod.yml logs -f"
-echo "  - View app logs: docker compose -f docker-compose.prod.yml logs -f app"
-echo "  - Restart:      docker compose -f docker-compose.prod.yml restart"
-echo "  - Stop:         docker compose -f docker-compose.prod.yml down"
-echo "  - Update:       git pull && docker compose -f docker-compose.prod.yml up -d --build"
-echo ""
-log_warning "Note:"
-echo "  - Self-signed SSL certificate will show browser warning (click 'Advanced' > 'Proceed')"
-echo "  - For production, replace with Let's Encrypt certificate"
-echo "  - Update NEXTAUTH_URL in .env with your domain"
-echo ""
+echo -e "${GREEN}🎉 DataRoom is now running in production mode!${NC}"
