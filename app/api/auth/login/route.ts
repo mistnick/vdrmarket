@@ -17,10 +17,12 @@ const loginSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    console.log("[LOGIN API] Received login request");
 
     // Validate input
     const validation = loginSchema.safeParse(body);
     if (!validation.success) {
+      console.log("[LOGIN API] Validation failed:", validation.error.issues);
       return NextResponse.json(
         { error: "Invalid input", details: validation.error.issues },
         { status: 400 }
@@ -28,13 +30,17 @@ export async function POST(request: NextRequest) {
     }
 
     const { email, password } = validation.data;
+    console.log("[LOGIN API] Validated email:", email);
 
     // Find user
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
     });
 
+    console.log("[LOGIN API] User lookup result:", user ? `Found (id: ${user.id})` : "Not found");
+
     if (!user || !user.password) {
+      console.log("[LOGIN API] User not found or no password set");
       return NextResponse.json(
         { error: "Invalid email or password" },
         { status: 401 }
@@ -42,17 +48,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify password
+    console.log("[LOGIN API] Comparing passwords...");
+    console.log("[LOGIN API] Input password length:", password.length);
+    console.log("[LOGIN API] Stored hash prefix:", user.password.substring(0, 7));
+    
     const passwordMatch = await bcrypt.compare(password, user.password);
+    console.log("[LOGIN API] Password match result:", passwordMatch);
 
     if (!passwordMatch) {
+      console.log("[LOGIN API] Password mismatch for user:", email);
       return NextResponse.json(
         { error: "Invalid email or password" },
         { status: 401 }
       );
     }
 
+    console.log("[LOGIN API] Password verified, creating session...");
+
     // Create session
     await createSession(user);
+    console.log("[LOGIN API] Session created successfully");
 
     // Log successful login
     await prisma.auditLog.create({
@@ -79,6 +94,17 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Login error:", error);
+    // In development, return more details
+    if (process.env.NODE_ENV === "development") {
+      return NextResponse.json(
+        { 
+          error: "Internal server error",
+          details: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        },
+        { status: 500 }
+      );
+    }
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

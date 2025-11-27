@@ -4,42 +4,62 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 async function main() {
-    const email = 'admin@dataroom.com';
-    const password = 'P4ssw0rd!';
+    // Test credentials
+    const testUsers = [
+        { email: 'admin@dataroom.com', password: 'Admin123!' },
+        { email: 'manager@dataroom.com', password: 'Manager123!' },
+        { email: 'user@dataroom.com', password: 'User123!' },
+    ];
 
-    console.log(`Checking user: ${email}`);
+    console.log('🔍 Checking database users...\n');
 
-    const user = await prisma.user.findUnique({
-        where: { email },
+    // List all users
+    const allUsers = await prisma.user.findMany({
+        select: {
+            id: true,
+            email: true,
+            name: true,
+            password: true,
+            emailVerified: true,
+        }
     });
 
-    if (!user) {
-        console.log('User not found. Creating user...');
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = await prisma.user.create({
-            data: {
-                email,
-                name: 'Admin User',
-                password: hashedPassword,
-                role: 'ADMIN',
-            },
-        });
-        console.log('User created:', newUser);
-    } else {
-        console.log('User found:', user);
-        console.log('Resetting password...');
-        const hashedPassword = await bcrypt.hash(password, 10);
-        await prisma.user.update({
-            where: { email },
-            data: { password: hashedPassword },
-        });
-        console.log('Password reset successfully.');
+    console.log(`📊 Total users in database: ${allUsers.length}\n`);
+
+    for (const user of allUsers) {
+        console.log(`  - ${user.email} (${user.name || 'No name'})`);
+        console.log(`    Password set: ${user.password ? 'Yes' : 'No'}`);
+        console.log(`    Email verified: ${user.emailVerified ? 'Yes' : 'No'}`);
+        console.log('');
     }
+
+    console.log('\n🔐 Testing login credentials...\n');
+
+    for (const { email, password } of testUsers) {
+        const user = await prisma.user.findUnique({
+            where: { email },
+        });
+
+        if (!user) {
+            console.log(`❌ ${email}: User not found`);
+            continue;
+        }
+
+        if (!user.password) {
+            console.log(`⚠️  ${email}: No password set`);
+            continue;
+        }
+
+        const passwordMatch = await bcrypt.compare(password, user.password);
+        console.log(`${passwordMatch ? '✅' : '❌'} ${email}: ${passwordMatch ? 'Password correct' : 'Password incorrect'}`);
+    }
+
+    console.log('\n✨ Done!\n');
 }
 
 main()
     .catch((e) => {
-        console.error(e);
+        console.error('Error:', e);
         process.exit(1);
     })
     .finally(async () => {
