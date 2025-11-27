@@ -4,8 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
     LayoutDashboard,
-    FileText,
-    FolderOpen,
     FolderTree,
     Database,
     Link2,
@@ -22,8 +20,6 @@ import { useSidebar } from "@/components/layouts/app-shell";
 
 const navigation = [
     { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { title: "Documenti", href: "/documents", icon: FileText },
-    { title: "Cartelle", href: "/folders", icon: FolderOpen },
     { title: "File Explorer", href: "/file-explorer", icon: FolderTree },
     { title: "Data Rooms", href: "/datarooms", icon: Database },
     { title: "Link", href: "/links", icon: Link2 },

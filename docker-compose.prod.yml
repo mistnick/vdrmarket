@@ -10,42 +10,10 @@ services:
       POSTGRES_DB: dataroom
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-keycloak-db.sql:/docker-entrypoint-initdb.d/init-keycloak-db.sql
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 10s
       timeout: 5s
-      retries: 5
-
-  # Keycloak
-  keycloak:
-    image: quay.io/keycloak/keycloak:23.0
-    container_name: dataroom-keycloak
-    restart: always
-    command: start-dev # Using start-dev for simplicity in this setup, 'start' requires build/cert config
-    environment:
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
-      KC_DB_USERNAME: keycloak
-      KC_DB_PASSWORD: keycloak
-      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-localhost}
-      KC_HOSTNAME_PORT: ${KEYCLOAK_PORT:-8080}
-      KC_HOSTNAME_STRICT: "false"
-      KC_HTTP_ENABLED: "true"
-      KC_HEALTH_ENABLED: "true"
-      KC_METRICS_ENABLED: "true"
-      KC_PROXY: "edge"
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin123}
-    ports:
-      - "8080:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health/ready" ]
-      interval: 30s
-      timeout: 10s
       retries: 5
 
   # Next.js Application
@@ -61,28 +29,22 @@ services:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/dataroom?schema=public
       NODE_ENV: production
 
-      # Auth & Keycloak
-      OAUTH_ISSUER: ${OAUTH_ISSUER:-http://localhost:8080/realms/dataroom}
-      OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID:-dataroom-client}
-      OAUTH_CLIENT_SECRET: ${OAUTH_CLIENT_SECRET}
-      OAUTH_REDIRECT_URI: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}/api/auth/callback
-      OAUTH_POST_LOGOUT_REDIRECT_URI: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}/auth/login
-
+      # Auth
       NEXTAUTH_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       AUTH_SECRET: ${AUTH_SECRET}
       AUTH_TRUST_HOST: "true"
 
       # Storage
-      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-minio}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-s3}
 
-      # MinIO Config (if used)
-      AWS_REGION: us-east-1
-      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
-      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
-      AWS_S3_BUCKET: dataroom
-      AWS_ENDPOINT: http://minio:9000
-      AWS_S3_FORCE_PATH_STYLE: "true"
+      # S3-compatible Storage Config (Aruba Cloud / MinIO / AWS)
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-dataroom}
+      AWS_ENDPOINT: ${AWS_ENDPOINT:-http://minio:9000}
+      AWS_S3_FORCE_PATH_STYLE: ${AWS_S3_FORCE_PATH_STYLE:-true}
 
       # Redis
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379
@@ -91,8 +53,6 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      keycloak:
         condition: service_healthy
     healthcheck:
       test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health" ]

@@ -25,7 +25,8 @@ cd /app
 node -e "
 const { execSync } = require('child_process');
 try {
-  execSync('npx prisma migrate deploy', { stdio: 'inherit', env: process.env });
+  // Use direct path to prisma binary in node_modules
+  execSync('node ./node_modules/prisma/build/index.js migrate deploy', { stdio: 'inherit', env: process.env });
   console.log('✅ Migrations completed');
 } catch (err) {
   console.log('⚠️  Migration warning:', err.message);

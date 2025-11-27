@@ -177,6 +177,17 @@ AWS_S3_BUCKET=dataroom
 AWS_ENDPOINT=http://localhost:9000
 ```
 
+### Aruba Cloud Object Storage (or OpenStack Swift S3-compatible)
+```env
+STORAGE_PROVIDER=s3
+AWS_REGION=r1-it
+AWS_ACCESS_KEY_ID=your_username
+AWS_SECRET_ACCESS_KEY=your_password
+AWS_S3_BUCKET=dataroom
+AWS_ENDPOINT=http://r1-it.storage.cloud.it
+AWS_S3_FORCE_PATH_STYLE=true
+```
+
 ## 🏗️ Project Structure
 
 ```
