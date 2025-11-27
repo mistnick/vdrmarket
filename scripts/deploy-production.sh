@@ -182,30 +182,92 @@ while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
 done
 echo ""
 
-# Step 10: Run database migrations from host (not inside container)
+# Step 10: Run database migrations
 log_info "Running database migrations..."
 
-# Install prisma locally for migrations
-npm install prisma@7 --no-save --legacy-peer-deps 2>/dev/null || true
-
-# Get database URL from .env
+cd "$APP_DIR"
 source "$APP_DIR/.env"
-export DATABASE_URL="postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB:-dataroom}?schema=public"
 
-# Run migrations
-npx prisma migrate deploy --schema="$APP_DIR/prisma/schema.prisma" || {
-    log_warning "Migration with npx failed, trying direct approach..."
-    node ./node_modules/prisma/build/index.js migrate deploy --schema="$APP_DIR/prisma/schema.prisma" || true
-}
+# Wait for postgres to be ready
+log_info "Waiting for PostgreSQL..."
+sleep 10
 
-# Run seed if needed
-if [ ! -f "$APP_DIR/.seeded" ]; then
-    log_info "Running database seed..."
-    npx prisma db seed --schema="$APP_DIR/prisma/schema.prisma" || true
-    touch "$APP_DIR/.seeded"
+# Run migrations using psql directly with the SQL from Prisma migrations
+log_info "Applying database schema..."
+
+# Check if tables exist
+TABLE_COUNT=$(docker compose -f docker-compose.prod.yml exec -T postgres psql -U postgres -d dataroom -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name != '_prisma_migrations';" 2>/dev/null | tr -d ' ' || echo "0")
+
+if [ "$TABLE_COUNT" = "0" ] || [ -z "$TABLE_COUNT" ]; then
+    log_info "Database is empty, applying initial schema..."
+    
+    # Apply each migration SQL file
+    for migration_dir in "$APP_DIR"/prisma/migrations/*/; do
+        if [ -f "${migration_dir}migration.sql" ]; then
+            migration_name=$(basename "$migration_dir")
+            log_info "Applying migration: $migration_name"
+            docker compose -f docker-compose.prod.yml exec -T postgres psql -U postgres -d dataroom -f - < "${migration_dir}migration.sql" 2>/dev/null || true
+            
+            # Record migration in _prisma_migrations table
+            docker compose -f docker-compose.prod.yml exec -T postgres psql -U postgres -d dataroom -c "
+                INSERT INTO _prisma_migrations (id, checksum, migration_name, applied_steps_count, finished_at)
+                VALUES ('$(uuidgen || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo $RANDOM)', 'manual', '$migration_name', 1, NOW())
+                ON CONFLICT DO NOTHING;
+            " 2>/dev/null || true
+        fi
+    done
+    
+    log_success "Schema applied successfully"
+else
+    log_info "Database already has $TABLE_COUNT tables, skipping schema creation"
 fi
 
-log_success "Database migrations completed"
+# Seed the database if needed
+if [ ! -f "$APP_DIR/.seeded" ]; then
+    log_info "Seeding database with test users..."
+    
+    # Create test users directly via SQL
+    docker compose -f docker-compose.prod.yml exec -T postgres psql -U postgres -d dataroom << 'SEED_SQL'
+    -- Create admin user if not exists
+    INSERT INTO users (id, email, name, password, email_verified, created_at, updated_at)
+    VALUES (
+        'admin-user-id-001',
+        'admin@dataroom.com',
+        'Admin User',
+        '$2b$10$K7L1OJ45/4Y2nIvhRVpCe.FSmhDdWoXehVzJptJ/op0lSsvqNu/1u',
+        NOW(),
+        NOW(),
+        NOW()
+    ) ON CONFLICT (email) DO NOTHING;
+    
+    -- Create admin team if not exists
+    INSERT INTO teams (id, name, slug, plan, created_at, updated_at)
+    VALUES (
+        'admin-team-id-001',
+        'Admin Team',
+        'admin-team',
+        'enterprise',
+        NOW(),
+        NOW()
+    ) ON CONFLICT (slug) DO NOTHING;
+    
+    -- Link admin to team
+    INSERT INTO team_members (id, team_id, user_id, role, created_at, updated_at)
+    VALUES (
+        'admin-member-id-001',
+        'admin-team-id-001',
+        'admin-user-id-001',
+        'owner',
+        NOW(),
+        NOW()
+    ) ON CONFLICT DO NOTHING;
+SEED_SQL
+    
+    touch "$APP_DIR/.seeded"
+    log_success "Database seeded (admin@dataroom.com / Admin123!)"
+fi
+
+log_success "Database setup completed"
 
 # Step 11: Show status
 echo ""

@@ -27,7 +27,18 @@ export async function GET() {
       include: {
         members: {
           include: {
-            user: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                emailVerified: true,
+                image: true,
+                isActive: true,
+                createdAt: true,
+                updatedAt: true,
+              },
+            },
           },
         },
         _count: {

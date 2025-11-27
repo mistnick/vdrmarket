@@ -24,6 +24,7 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String? // For email/password authentication
+  isActive      Boolean   @default(true) // For user activation/deactivation
 
   // Password reset
   passwordResetToken  String?   @unique
@@ -55,6 +56,7 @@ model User {
   commentsCreated   Comment[]         @relation("CommentsCreated")
   commentMentions   CommentMention[]  @relation("CommentMentions")
 
+  @@index([isActive])
   @@map("users")
 }
 

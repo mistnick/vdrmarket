@@ -44,6 +44,7 @@ import {
   Download,
   Trash2,
   UserX,
+  UserCheck,
   MoreHorizontal,
   ChevronDown,
   ChevronRight,
@@ -89,6 +90,7 @@ interface ApiUser {
   name: string | null;
   email: string;
   emailVerified: string | null;
+  isActive?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -119,16 +121,26 @@ interface ApiTeam {
 
 // Transform API data to UI format
 function transformApiTeamToTeam(apiTeam: ApiTeam): Team {
-  const members: Member[] = apiTeam.members.map((m) => ({
-    id: m.user.id,
-    name: m.user.name,
-    email: m.user.email,
-    role: m.role === "owner" ? "Administrator" : m.role === "admin" ? "Administrator" : "User",
-    status: m.user.emailVerified ? "active" : "pending",
-    lastSignIn: m.user.emailVerified ? new Date(m.user.emailVerified) : null,
-    interactions: apiTeam._count.documents + apiTeam._count.folders + apiTeam._count.dataRooms,
-    teamId: apiTeam.id,
-  }));
+  const members: Member[] = apiTeam.members.map((m) => {
+    // Determina lo stato: inactive se isActive è false, altrimenti active/pending in base a emailVerified
+    let status: "active" | "inactive" | "pending" = "pending";
+    if (m.user.isActive === false) {
+      status = "inactive";
+    } else if (m.user.emailVerified) {
+      status = "active";
+    }
+    
+    return {
+      id: m.user.id,
+      name: m.user.name,
+      email: m.user.email,
+      role: m.role === "owner" ? "Administrator" : m.role === "admin" ? "Administrator" : "User",
+      status,
+      lastSignIn: m.user.emailVerified ? new Date(m.user.emailVerified) : null,
+      interactions: apiTeam._count.documents + apiTeam._count.folders + apiTeam._count.dataRooms,
+      teamId: apiTeam.id,
+    };
+  });
 
   // Calculate team-level aggregates
   const lastSignIn = members
@@ -307,10 +319,119 @@ export default function ParticipantsPage() {
   const handleDeactivate = async () => {
     if (!hasSelection) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 500));
-    setLoading(false);
-    setSelectedIds(new Set());
+    setError(null);
+    
+    try {
+      // Ottieni gli ID degli utenti selezionati (escludendo i team)
+      const memberIds = Array.from(selectedIds).filter((id) => {
+        // Controlla se l'ID appartiene a un membro e non a un team
+        return teams.some((t) => t.members.some((m) => m.id === id));
+      });
+
+      if (memberIds.length === 0) {
+        setError("Seleziona almeno un utente da disattivare");
+        setLoading(false);
+        return;
+      }
+
+      // Controlla se ci sono utenti già inattivi (per decidere se attivare o disattivare)
+      const allMembers = teams.flatMap((t) => t.members);
+      const selectedMembers = allMembers.filter((m) => memberIds.includes(m.id));
+      const hasInactiveMembers = selectedMembers.some((m) => m.status === "inactive");
+
+      // Se tutti sono attivi -> disattiva, se ce ne sono di inattivi -> attiva
+      const newIsActive = hasInactiveMembers;
+
+      // Esegui le chiamate API per ogni utente selezionato
+      const results = await Promise.allSettled(
+        memberIds.map((userId) =>
+          fetch(`/api/users/${userId}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ isActive: newIsActive }),
+          }).then(async (res) => {
+            if (!res.ok) {
+              const data = await res.json();
+              throw new Error(data.error || "Errore durante l'aggiornamento");
+            }
+            return res.json();
+          })
+        )
+      );
+
+      // Conta successi e fallimenti
+      const successes = results.filter((r) => r.status === "fulfilled").length;
+      const failures = results.filter((r) => r.status === "rejected").length;
+
+      if (failures > 0) {
+        const failedReasons = results
+          .filter((r): r is PromiseRejectedResult => r.status === "rejected")
+          .map((r) => r.reason?.message)
+          .filter(Boolean);
+        setError(`${successes} utenti aggiornati, ${failures} falliti: ${failedReasons.join(", ")}`);
+      }
+
+      // Ricarica i dati
+      await fetchTeams();
+      setSelectedIds(new Set());
+    } catch (err) {
+      console.error("Error updating user status:", err);
+      setError(err instanceof Error ? err.message : "Errore durante l'aggiornamento");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // Handler per attivare/disattivare un singolo utente
+  const handleToggleUserStatus = async (userId: string, currentStatus: "active" | "inactive" | "pending") => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const newIsActive = currentStatus === "inactive";
+      
+      const response = await fetch(`/api/users/${userId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: newIsActive }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Errore durante l'aggiornamento");
+      }
+
+      // Ricarica i dati
+      await fetchTeams();
+    } catch (err) {
+      console.error("Error toggling user status:", err);
+      setError(err instanceof Error ? err.message : "Errore durante l'aggiornamento");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Determina il testo del pulsante in base allo stato degli utenti selezionati
+  const getToggleButtonState = () => {
+    if (!hasSelection) return { label: "Deactivate", icon: UserX, action: "deactivate" };
+    
+    const memberIds = Array.from(selectedIds).filter((id) => 
+      teams.some((t) => t.members.some((m) => m.id === id))
+    );
+    
+    if (memberIds.length === 0) return { label: "Deactivate", icon: UserX, action: "deactivate" };
+    
+    const allMembers = teams.flatMap((t) => t.members);
+    const selectedMembers = allMembers.filter((m) => memberIds.includes(m.id));
+    const hasInactiveMembers = selectedMembers.some((m) => m.status === "inactive");
+    
+    if (hasInactiveMembers) {
+      return { label: "Activate", icon: UserCheck, action: "activate" };
+    }
+    return { label: "Deactivate", icon: UserX, action: "deactivate" };
+  };
+
+  const toggleButtonState = getToggleButtonState();
 
   const handleExport = async () => {
     const csvContent = teams
@@ -466,11 +587,15 @@ export default function ParticipantsPage() {
         </Button>
         <Button
           variant="outline"
-          disabled={!hasSelection}
+          disabled={!hasSelection || loading}
           onClick={handleDeactivate}
         >
-          <UserX className="mr-2 h-4 w-4" />
-          Deactivate
+          {loading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <toggleButtonState.icon className="mr-2 h-4 w-4" />
+          )}
+          {toggleButtonState.label}
         </Button>
       </div>
 
@@ -597,9 +722,15 @@ export default function ParticipantsPage() {
                             Move to team
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => {
+                              // Seleziona tutti i membri del team e poi esegui deactivate
+                              const memberIds = team.members.map(m => m.id);
+                              setSelectedIds(new Set(memberIds));
+                            }}
+                          >
                             <UserX className="mr-2 h-4 w-4" />
-                            Deactivate
+                            Deactivate all members
                           </DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive focus:text-destructive">
                             <Trash2 className="mr-2 h-4 w-4" />
@@ -674,9 +805,21 @@ export default function ParticipantsPage() {
                                 Move to team
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem>
-                                <UserX className="mr-2 h-4 w-4" />
-                                Deactivate
+                              <DropdownMenuItem 
+                                onClick={() => handleToggleUserStatus(member.id, member.status)}
+                                disabled={loading}
+                              >
+                                {member.status === "inactive" ? (
+                                  <>
+                                    <UserCheck className="mr-2 h-4 w-4" />
+                                    Activate
+                                  </>
+                                ) : (
+                                  <>
+                                    <UserX className="mr-2 h-4 w-4" />
+                                    Deactivate
+                                  </>
+                                )}
                               </DropdownMenuItem>
                               <DropdownMenuItem className="text-destructive focus:text-destructive">
                                 <Trash2 className="mr-2 h-4 w-4" />
