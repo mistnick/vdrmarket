@@ -62,7 +62,18 @@ docker run -d \
     -v certbot_www:/var/www/certbot \
     nginx:alpine
 
-echo -e "${YELLOW}Step 4/6: Obtaining SSL certificate from Let's Encrypt...${NC}"
+echo -e "${YELLOW}Step 4/6: Waiting for Nginx to be ready...${NC}"
+for i in {1..10}; do
+    if curl -s http://localhost > /dev/null; then
+        echo -e "${GREEN}✓ Nginx is responding locally${NC}"
+        break
+    fi
+    echo -n "."
+    sleep 1
+done
+echo ""
+
+echo -e "${YELLOW}Step 5/6: Obtaining SSL certificate from Let's Encrypt...${NC}"
 docker run --rm \
     --network dataroom-network \
     -v certbot_data:/etc/letsencrypt \
@@ -76,12 +87,12 @@ docker run --rm \
     -d $DOMAIN \
     -d simplevdr.com
 
-echo -e "${YELLOW}Step 5/6: Stopping temporary nginx...${NC}"
+echo -e "${YELLOW}Step 6/6: Stopping temporary nginx...${NC}"
 docker stop dataroom-nginx-temp
 docker rm dataroom-nginx-temp
 rm nginx/nginx-init.conf
 
-echo -e "${YELLOW}Step 6/6: Starting production stack with SSL...${NC}"
+echo -e "${YELLOW}Step 7/6: Starting production stack with SSL...${NC}"
 docker-compose -f $COMPOSE_FILE up -d nginx
 
 echo ""
