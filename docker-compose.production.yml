@@ -122,6 +122,10 @@ services:
 
       # Optional: Sentry
       NEXT_PUBLIC_SENTRY_DSN: ${SENTRY_DSN:-}
+
+      # Security
+      CLAMAV_ENABLED: ${CLAMAV_ENABLED:-false}
+      VIRUSTOTAL_API_KEY: ${VIRUSTOTAL_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

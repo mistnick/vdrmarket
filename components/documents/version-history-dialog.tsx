@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Download, RotateCcw, FileText, User } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 
 interface DocumentVersion {
     id: string;
@@ -113,8 +114,27 @@ export function VersionHistoryDialog({
     };
 
     const handleDownload = async (versionId: string) => {
-        // TODO: Implement version download
-        alert("Download functionality to be implemented");
+        try {
+            const response = await fetch(`/api/documents/${documentId}/versions/${versionId}/download`);
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                // Find the version to get the filename
+                const version = versions.find(v => v.id === versionId);
+                a.download = version?.fileName || 'document';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } else {
+                throw new Error("Download failed");
+            }
+        } catch (error) {
+            console.error("Error downloading version:", error);
+            toast.error("Failed to download version");
+        }
     };
 
     const formatFileSize = (bytes: number) => {
@@ -160,14 +180,14 @@ export function VersionHistoryDialog({
                                     {/* Timeline dot */}
                                     <div
                                         className={`relative z-10 flex items-center justify-center w-12 h-12 rounded-full border-2 ${version.versionNumber === currentVersion
-                                                ? "bg-emerald-100 border-emerald-600"
-                                                : "bg-white border-border"
+                                            ? "bg-emerald-100 border-emerald-600"
+                                            : "bg-white border-border"
                                             }`}
                                     >
                                         <span
                                             className={`text-sm font-bold ${version.versionNumber === currentVersion
-                                                    ? "text-emerald-600"
-                                                    : "text-muted-foreground"
+                                                ? "text-emerald-600"
+                                                : "text-muted-foreground"
                                                 }`}
                                         >
                                             v{version.versionNumber}

@@ -137,9 +137,18 @@ for i in {1..30}; do
 done
 
 # 7. Database Setup
-echo -e "${YELLOW}Step 7/8: Running migrations and seeding...${NC}"
+echo -e "${YELLOW}Step 7/8: Running migrations and regenerating Prisma client...${NC}"
+
+# Run migrations
+echo "Running database migrations..."
 docker exec dataroom-app npx prisma migrate deploy
-# Only seed if users table is empty (optional check, or just run seed which is usually idempotent-ish or safe to fail)
+
+# Regenerate Prisma client (important for new security fields)
+echo "Regenerating Prisma client..."
+docker exec dataroom-app npx prisma generate
+
+# Seed database if needed
+echo "Seeding database..."
 docker exec dataroom-app npm run db:seed || echo "Seeding skipped or failed (maybe already seeded)"
 
 # 8. Final Status

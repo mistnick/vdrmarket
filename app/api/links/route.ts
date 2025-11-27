@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
-import { nanoid } from "nanoid";
+import { generateSecureToken } from "@/lib/security/token";
 import bcrypt from "bcryptjs";
 import { sendDocumentSharedEmail } from "@/lib/email/service";
 
@@ -124,6 +124,8 @@ export async function POST(request: Request) {
       enableTracking = true,
       enableFeedback = false,
       allowedEmails = [],
+      maxViews, // New: max number of views
+      allowedDomains, // New: array of allowed email domains
     } = body;
 
     if (!documentId) {
@@ -165,13 +167,30 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate unique slug
-    const slug = nanoid(10);
+    // Generate secure 128-bit token (22 characters)
+    const slug = generateSecureToken();
 
     // Hash password if provided
     const hashedPassword = password
       ? await bcrypt.hash(password, 10)
       : null;
+
+    // Set default expiration to 7 days if not provided
+    const defaultExpiresAt = new Date();
+    defaultExpiresAt.setDate(defaultExpiresAt.getDate() + 7);
+    const finalExpiresAt = expiresAt ? new Date(expiresAt) : defaultExpiresAt;
+
+    // Validate and process allowedDomains
+    let domainsJson = null;
+    if (allowedDomains && Array.isArray(allowedDomains) && allowedDomains.length > 0) {
+      // Basic domain validation
+      const validDomains = allowedDomains.filter((domain: string) => {
+        return typeof domain === 'string' && domain.trim().length > 0;
+      });
+      if (validDomains.length > 0) {
+        domainsJson = validDomains;
+      }
+    }
 
     // Create link
     const link = await prisma.link.create({
@@ -182,13 +201,16 @@ export async function POST(request: Request) {
         name,
         description,
         password: hashedPassword,
-        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        expiresAt: finalExpiresAt,
         allowDownload,
         allowNotification,
         emailProtected,
         emailAuthenticated,
         enableTracking,
         enableFeedback,
+        maxViews: maxViews || null,
+        viewCount: 0,
+        allowedDomains: domainsJson as any,
         allowedEmails: {
           create: allowedEmails.map((email: string) => ({
             email,

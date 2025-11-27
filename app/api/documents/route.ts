@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { getStorageProvider } from "@/lib/storage";
+import { validateFile, generateSecureStorageKey } from "@/lib/security/file-validation";
+import { scanFile } from "@/lib/security/malware-scanner";
 
 // GET /api/documents - Get all documents for authenticated user
 export async function GET(request: Request) {
@@ -135,10 +137,53 @@ export async function POST(request: Request) {
       );
     }
 
-    // Upload file to storage
-    const storage = getStorageProvider();
+    // Get team settings for file upload limits
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      select: {
+        maxFileSize: true,
+        allowedFileTypes: true,
+      },
+    });
+
+    if (!team) {
+      return NextResponse.json(
+        { success: false, error: "Team not found" },
+        { status: 404 }
+      );
+    }
+
+    // Convert file to buffer for validation and scanning
     const fileBuffer = Buffer.from(await file.arrayBuffer());
-    const fileKey = `${teamId}/${Date.now()}-${file.name}`;
+
+    // Validate file (type, size, filename, MIME verification)
+    const validation = await validateFile(file, fileBuffer, {
+      maxSize: team.maxFileSize,
+      customWhitelist: team.allowedFileTypes as string[] | undefined,
+    });
+
+    if (!validation.valid) {
+      return NextResponse.json(
+        { success: false, error: validation.error || "File validation failed" },
+        { status: 400 }
+      );
+    }
+
+    // Scan for malware
+    const scanResult = await scanFile(fileBuffer, file.name);
+
+    // Block infected files
+    if (scanResult.status === 'infected') {
+      console.warn(`[Security] Blocked infected file upload: ${file.name}`, scanResult);
+      return NextResponse.json(
+        { success: false, error: "File failed security scan and cannot be uploaded" },
+        { status: 400 }
+      );
+    }
+
+    // Upload file to storage with secure key
+    const storage = getStorageProvider();
+    const fileKey = generateSecureStorageKey(teamId, validation.sanitizedFilename || file.name);
 
     const uploadResult = await storage.upload(fileKey, fileBuffer, {
       contentType: file.type,
@@ -148,18 +193,20 @@ export async function POST(request: Request) {
       },
     });
 
-    // Create document record
+    // Create document record with scan status
     const document = await prisma.document.create({
       data: {
-        name: name || file.name,
+        name: name || (validation.sanitizedFilename || file.name),
         description,
         file: uploadResult.key,
-        fileType: file.type,
+        fileType: validation.detectedMimeType || file.type,
         fileSize: file.size,
         teamId,
         ownerId: user.id,
         folderId: folderId || null,
         dataRoomId: dataRoomId || null,
+        scanStatus: scanResult.status,
+        scanResult: scanResult as any, // Store scan metadata as JSON
       },
       include: {
         owner: true,

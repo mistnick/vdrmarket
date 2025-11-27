@@ -143,6 +143,10 @@ model Team {
   watermarkEnabled Boolean @default(true)
   watermarkText    String? // Custom watermark text template
   watermarkOpacity Float?  @default(0.3)
+  
+  // File Upload Security
+  maxFileSize      Int     @default(104857600) // Max file size in bytes (default 100MB)
+  allowedFileTypes Json?   // Custom whitelist of allowed MIME types (null = use global defaults)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -205,6 +209,11 @@ model Document {
   ownerId     String
   folderId    String?
   dataRoomId  String?
+  
+  // File Security
+  scanStatus String?  @default("pending") // pending, clean, infected, error, skipped
+  scanResult Json?    // Scanner metadata (scanner name, scan date, threat info if any)
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -224,6 +233,7 @@ model Document {
   @@index([ownerId])
   @@index([folderId])
   @@index([dataRoomId])
+  @@index([scanStatus]) // For filtering documents by scan status
   @@map("documents")
 }
 
@@ -338,6 +348,11 @@ model Link {
   emailProtected     Boolean   @default(false)
   emailAuthenticated Boolean   @default(false)
   domainSlug         String?
+  
+  // Security Enhancements
+  maxViews       Int?  // Maximum number of views allowed (null = unlimited)
+  viewCount      Int   @default(0) // Current number of views
+  allowedDomains Json? // Array of allowed email domains (e.g., ["company.com", "partner.com"])
 
   // Tracking
   enableTracking Boolean @default(true)
@@ -354,6 +369,7 @@ model Link {
 
   @@index([documentId])
   @@index([slug])
+  @@index([viewCount]) // For efficient max views checking
   @@map("links")
 }
 

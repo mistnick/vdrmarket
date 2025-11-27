@@ -39,6 +39,10 @@ import {
   Square,
   Archive,
   Lock,
+  History,
+  FilePlus,
+  Share2,
+  Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -60,6 +64,8 @@ import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/shared/page-header";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { toast } from "sonner";
+import { VersionHistoryDialog } from "@/components/documents/version-history-dialog";
+import { UploadVersionDialog } from "@/components/documents/upload-version-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -240,7 +246,7 @@ function NavTreeItem({
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
-    
+
     const draggedId = e.dataTransfer.getData("text/plain");
     if (draggedId && draggedId !== item.id) {
       onDrop(item, draggedId);
@@ -331,6 +337,8 @@ function ContentTreeRow({
   onSelect,
   onDownload,
   onDelete,
+  onVersionHistory,
+  onUploadVersion,
 }: {
   item: FileItem;
   level?: number;
@@ -344,6 +352,8 @@ function ContentTreeRow({
   onSelect: (item: FileItem, selected: boolean) => void;
   onDownload: (item: FileItem) => void;
   onDelete: (item: FileItem) => void;
+  onVersionHistory: (item: FileItem) => void;
+  onUploadVersion: (item: FileItem) => void;
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const isExpanded = expandedIds.has(item.id);
@@ -403,7 +413,7 @@ function ContentTreeRow({
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
-    
+
     if (isFolder || isDataRoom) {
       const draggedId = e.dataTransfer.getData("text/plain");
       if (draggedId && draggedId !== item.id) {
@@ -466,8 +476,8 @@ function ContentTreeRow({
                 isDataRoom
                   ? "bg-purple-100 text-purple-700"
                   : isFolder
-                  ? "bg-amber-100 text-amber-700"
-                  : "bg-primary/10 text-primary"
+                    ? "bg-amber-100 text-amber-700"
+                    : "bg-primary/10 text-primary"
               )}
             >
               <FileIcon className="h-4 w-4" />
@@ -547,10 +557,30 @@ function ContentTreeRow({
                       <Download className="mr-2 h-4 w-4" />
                       Download
                     </DropdownMenuItem>
-                    <DropdownMenuItem>Share</DropdownMenuItem>
-                    <DropdownMenuItem>Rename</DropdownMenuItem>
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      onVersionHistory(item);
+                    }}>
+                      <History className="mr-2 h-4 w-4" />
+                      Version History
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      onUploadVersion(item);
+                    }}>
+                      <FilePlus className="mr-2 h-4 w-4" />
+                      Upload New Version
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Share2 className="mr-2 h-4 w-4" />
+                      Share
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Rename
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       className="text-destructive"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -573,9 +603,12 @@ function ContentTreeRow({
                       <Download className="mr-2 h-4 w-4" />
                       Download as ZIP
                     </DropdownMenuItem>
-                    <DropdownMenuItem>Rename</DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Rename
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       className="text-destructive"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -608,6 +641,8 @@ function ContentTreeRow({
             onSelect={onSelect}
             onDownload={onDownload}
             onDelete={onDelete}
+            onVersionHistory={onVersionHistory}
+            onUploadVersion={onUploadVersion}
           />
         ))}
     </>
@@ -649,6 +684,11 @@ export default function FileExplorerPage() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Version history states
+  const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
+  const [uploadVersionOpen, setUploadVersionOpen] = useState(false);
+  const [versioningItem, setVersioningItem] = useState<FileItem | null>(null);
+
   // Fetch team ID
   useEffect(() => {
     async function fetchTeam() {
@@ -662,6 +702,28 @@ export default function FileExplorerPage() {
     }
     fetchTeam();
   }, [authFetch]);
+
+  // Reset drag state when leaving window or on dragend
+  useEffect(() => {
+    const handleDragEnd = () => {
+      setIsExternalDragOver(false);
+    };
+
+    const handleWindowDragLeave = (e: DragEvent) => {
+      // Check if leaving the window
+      if (e.clientX === 0 && e.clientY === 0) {
+        setIsExternalDragOver(false);
+      }
+    };
+
+    window.addEventListener("dragend", handleDragEnd);
+    window.addEventListener("dragleave", handleWindowDragLeave);
+
+    return () => {
+      window.removeEventListener("dragend", handleDragEnd);
+      window.removeEventListener("dragleave", handleWindowDragLeave);
+    };
+  }, []);
 
   // Fetch data rooms and build tree
   const fetchData = useCallback(async () => {
@@ -959,7 +1021,7 @@ export default function FileExplorerPage() {
     for (const file of Array.from(files)) {
       const relativePath = (file as FileWithPath).webkitRelativePath || file.name;
       const pathParts = relativePath.split("/");
-      
+
       // Collect all directory paths
       let currentPath = "";
       for (let i = 0; i < pathParts.length - 1; i++) {
@@ -984,14 +1046,14 @@ export default function FileExplorerPage() {
 
     // Create folder structure
     const folderIdMap = new Map<string, string>();
-    
+
     for (const path of sortedPaths) {
       const pathParts = path.split("/");
       const folderName = pathParts[pathParts.length - 1];
       const parentPath = pathParts.slice(0, -1).join("/");
-      
+
       let parentFolderId = parentPath ? folderIdMap.get(parentPath) : baseParentId;
-      
+
       const newFolder = await createFolder(folderName, parentFolderId || null, dataRoomId);
       if (newFolder) {
         folderIdMap.set(path, newFolder.id);
@@ -1004,7 +1066,7 @@ export default function FileExplorerPage() {
 
     for (const [dirPath, dirFiles] of filesByPath) {
       const folderId = dirPath ? folderIdMap.get(dirPath) : baseParentId;
-      
+
       for (const file of dirFiles) {
         const success = await uploadFile(file, folderId || null, dataRoomId);
         if (success) {
@@ -1051,16 +1113,16 @@ export default function FileExplorerPage() {
         }
 
         const folderId = selectedItem.type === "folder" ? selectedItem.id : null;
-        
+
         let successCount = 0;
         for (const file of Array.from(files)) {
           const success = await uploadFile(file, folderId, dataRoomId);
           if (success) successCount++;
         }
-        
+
         toast.success(`${successCount} file caricati con successo`);
       }
-      
+
       fetchData();
     } catch (err) {
       console.error("Upload error:", err);
@@ -1103,7 +1165,7 @@ export default function FileExplorerPage() {
       } else if (entry.isDirectory) {
         const dirEntry = entry as FileSystemDirectoryEntry;
         const dirReader = dirEntry.createReader();
-        
+
         return new Promise((resolve) => {
           dirReader.readEntries(async (entries) => {
             const newPath = path ? `${path}/${entry.name}` : entry.name;
@@ -1134,7 +1196,7 @@ export default function FileExplorerPage() {
         // Convert to FileList-like object for upload
         const dt = new DataTransfer();
         files.forEach((f) => dt.items.add(f));
-        
+
         await handleUpload(dt.files, hasDirectories);
       } catch (err) {
         console.error("Drop error:", err);
@@ -1228,7 +1290,7 @@ export default function FileExplorerPage() {
       }
 
       const parentId = selectedItem.type === "folder" ? selectedItem.id : null;
-      
+
       const result = await createFolder(newFolderName.trim(), parentId, dataRoomId);
 
       if (!result) {
@@ -1280,7 +1342,7 @@ export default function FileExplorerPage() {
       try {
         const response = await fetch(`/api/documents/${item.id}/download`);
         if (!response.ok) throw new Error("Download failed");
-        
+
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -1290,7 +1352,7 @@ export default function FileExplorerPage() {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        
+
         toast.success("File scaricato con successo");
       } catch (err) {
         console.error("Download error:", err);
@@ -1314,7 +1376,7 @@ export default function FileExplorerPage() {
 
   const handleDownloadArchive = async () => {
     setIsDownloading(true);
-    
+
     try {
       const documentIds: string[] = [];
       const folderIds: string[] = [];
@@ -1352,7 +1414,7 @@ export default function FileExplorerPage() {
           }
           return null;
         };
-        
+
         const item = findItem(dataRooms, downloadArchiveName);
         if (item?.type === "folder") {
           folderIds.push(item.id);
@@ -1396,6 +1458,17 @@ export default function FileExplorerPage() {
     } finally {
       setIsDownloading(false);
     }
+  };
+
+  // Version history handlers
+  const handleVersionHistory = (item: FileItem) => {
+    setVersioningItem(item);
+    setVersionHistoryOpen(true);
+  };
+
+  const handleUploadVersion = (item: FileItem) => {
+    setVersioningItem(item);
+    setUploadVersionOpen(true);
   };
 
   // Delete handlers
@@ -1612,21 +1685,52 @@ export default function FileExplorerPage() {
         )}
         onDragOver={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           if (!draggedItem) {
             setIsExternalDragOver(true);
           }
         }}
         onDragLeave={(e) => {
-          if (e.currentTarget === e.target) {
-            setIsExternalDragOver(false);
+          e.preventDefault();
+          // Check if we're actually leaving the drop zone, not just moving to a child element
+          const rect = dropZoneRef.current?.getBoundingClientRect();
+          if (rect) {
+            const { clientX, clientY } = e;
+            if (
+              clientX < rect.left ||
+              clientX > rect.right ||
+              clientY < rect.top ||
+              clientY > rect.bottom
+            ) {
+              setIsExternalDragOver(false);
+            }
           }
         }}
         onDrop={handleExternalDrop}
       >
         {/* External drop overlay */}
         {isExternalDragOver && (
-          <div className="absolute inset-0 flex items-center justify-center bg-primary/5 border-2 border-dashed border-primary rounded-lg z-50 pointer-events-none">
-            <div className="flex flex-col items-center gap-2 text-primary">
+          <div
+            className="absolute inset-0 flex items-center justify-center bg-primary/5 border-2 border-dashed border-primary rounded-lg z-50"
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              // Only hide if leaving to outside the window
+              if (!e.relatedTarget || !(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
+                setIsExternalDragOver(false);
+              }
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleExternalDrop(e);
+            }}
+          >
+            <div className="flex flex-col items-center gap-2 text-primary pointer-events-none">
               <Upload className="h-12 w-12" />
               <p className="text-lg font-medium">Rilascia file o cartelle qui</p>
               <p className="text-sm text-muted-foreground">
@@ -1637,7 +1741,14 @@ export default function FileExplorerPage() {
         )}
 
         {/* Left Panel - Navigation Tree */}
-        <Card className="w-64 shrink-0 border-border/60">
+        <Card
+          className="w-64 shrink-0 border-border/60 h-full"
+          onDragOver={(e) => {
+            e.preventDefault();
+            if (!draggedItem) setIsExternalDragOver(true);
+          }}
+          onDrop={handleExternalDrop}
+        >
           <CardContent className="p-0 h-full">
             <div className="p-3 border-b border-border/60">
               <h3 className="text-sm font-semibold text-foreground">Virtual Data Rooms</h3>
@@ -1678,7 +1789,14 @@ export default function FileExplorerPage() {
         </Card>
 
         {/* Right Panel - Content Table */}
-        <Card className="flex-1 border-border/60 overflow-hidden">
+        <Card
+          className="flex-1 border-border/60 overflow-hidden h-full"
+          onDragOver={(e) => {
+            e.preventDefault();
+            if (!draggedItem) setIsExternalDragOver(true);
+          }}
+          onDrop={handleExternalDrop}
+        >
           <CardContent className="p-0 h-full flex flex-col">
             {/* Toolbar */}
             <div className="p-3 border-b border-border/60 space-y-2">
@@ -1719,7 +1837,7 @@ export default function FileExplorerPage() {
                     className="pl-9 h-9"
                   />
                 </div>
-                
+
                 {/* Selection Actions */}
                 {selectedItems.size > 0 && (
                   <div className="flex items-center gap-2 pl-2 border-l">
@@ -1799,10 +1917,10 @@ export default function FileExplorerPage() {
                             {searchQuery
                               ? "Nessun risultato trovato"
                               : dataRooms.length === 0
-                              ? "Nessuna Data Room presente"
-                              : selectedItem
-                              ? "Questa cartella è vuota"
-                              : "Seleziona una Data Room"}
+                                ? "Nessuna Data Room presente"
+                                : selectedItem
+                                  ? "Questa cartella è vuota"
+                                  : "Seleziona una Data Room"}
                           </p>
                           {!searchQuery && selectedItem && (
                             <p className="text-sm">
@@ -1827,6 +1945,8 @@ export default function FileExplorerPage() {
                         onSelect={handleSelectItem}
                         onDownload={handleDownloadSingle}
                         onDelete={handleDeleteClick}
+                        onVersionHistory={handleVersionHistory}
+                        onUploadVersion={handleUploadVersion}
                       />
                     ))
                   )}
@@ -2006,6 +2126,38 @@ export default function FileExplorerPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Version History Dialog */}
+      {versioningItem && (
+        <VersionHistoryDialog
+          documentId={versioningItem.id}
+          currentVersion={1}
+          open={versionHistoryOpen}
+          onOpenChange={(open) => {
+            setVersionHistoryOpen(open);
+            if (!open) setVersioningItem(null);
+          }}
+          onVersionRestored={() => {
+            fetchData();
+          }}
+        />
+      )}
+
+      {/* Upload Version Dialog */}
+      {versioningItem && (
+        <UploadVersionDialog
+          documentId={versioningItem.id}
+          documentName={versioningItem.name}
+          open={uploadVersionOpen}
+          onOpenChange={(open) => {
+            setUploadVersionOpen(open);
+            if (!open) setVersioningItem(null);
+          }}
+          onSuccess={() => {
+            fetchData();
+          }}
+        />
+      )}
     </div>
   );
 }

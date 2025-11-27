@@ -243,11 +243,12 @@ export default function DataRoomDetailPage({ params }: { params: Promise<{ id: s
                                             <p className="font-medium">{doc.name}</p>
                                             <p className="text-sm text-muted-foreground">
                                                 {(doc.fileSize / 1024 / 1024).toFixed(2)} MB • {new Date(doc.createdAt).toLocaleDateString()}
+                                                {doc.versions > 1 && ` • v${doc.versions}`}
                                             </p>
                                         </div>
                                     </div>
-                                    <Button variant="ghost" size="sm" asChild>
-                                        <Link href={`/documents/${doc.id}`}>View</Link>
+                                    <Button variant="ghost" size="sm" onClick={() => router.push(`/file-explorer`)}>
+                                        Open in Explorer
                                     </Button>
                                 </div>
                             ))}

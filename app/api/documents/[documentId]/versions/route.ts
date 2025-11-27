@@ -3,6 +3,8 @@ import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { getStorageProvider } from "@/lib/storage";
 import { createAuditLog } from "@/lib/auth/audit-logger";
+import { validateFile } from "@/lib/security/file-validation";
+import { scanFile } from "@/lib/security/malware-scanner";
 
 export async function GET(
   request: NextRequest,
@@ -129,9 +131,43 @@ export async function POST(
       return NextResponse.json({ error: "File is required" }, { status: 400 });
     }
 
-    // Convert File to Buffer for upload
+    // Convert File to Buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+
+    // Get team for security settings
+    const team = await prisma.team.findUnique({
+      where: { id: document.teamId },
+      select: { maxFileSize: true, allowedFileTypes: true },
+    });
+
+    if (!team) {
+      return NextResponse.json({ error: "Team not found" }, { status: 404 });
+    }
+
+    // Validate file
+    const validation = await validateFile(file, buffer, {
+      maxSize: team.maxFileSize,
+      customWhitelist: team.allowedFileTypes as string[] | undefined,
+    });
+
+    if (!validation.valid) {
+      return NextResponse.json(
+        { error: validation.error || "File validation failed" },
+        { status: 400 }
+      );
+    }
+
+    // Scan for malware
+    const scanResult = await scanFile(buffer, file.name);
+
+    if (scanResult.status === 'infected') {
+      console.warn(`[Security] Blocked infected version upload: ${file.name}`, scanResult);
+      return NextResponse.json(
+        { error: "File failed security scan and cannot be uploaded" },
+        { status: 400 }
+      );
+    }
 
     // Generate unique key for version
     const timestamp = Date.now();
