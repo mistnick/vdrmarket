@@ -86,17 +86,17 @@ export function SidebarNav() {
 
             {/* Footer */}
             <div className="border-t p-3">
-                <Link
-                    href="/api/auth/logout"
+                <button
+                    onClick={() => window.location.href = "/auth/logout"}
                     className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors",
+                        "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors",
                         isCollapsed && "justify-center px-2"
                     )}
                     title={isCollapsed ? "Esci" : undefined}
                 >
                     <LogOut className="h-5 w-5 shrink-0" />
                     {!isCollapsed && <span>Esci</span>}
-                </Link>
+                </button>
             </div>
         </div>
     );

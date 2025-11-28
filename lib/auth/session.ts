@@ -227,8 +227,36 @@ export async function deleteSession(): Promise<void> {
       // Session might not exist, that's ok
     });
 
-    cookieStore.delete(SESSION_COOKIE_NAME);
+    // Delete custom session cookie
+    try {
+      cookieStore.delete(SESSION_COOKIE_NAME);
+    } catch {
+      // Ignore
+    }
   }
+
+  // Also clear all NextAuth cookies to ensure complete logout
+  // Try multiple deletion strategies to ensure cookies are cleared
+  for (const cookieName of AUTH_COOKIES_TO_CLEAR) {
+    try {
+      // Try deleting with various options
+      cookieStore.delete(cookieName);
+
+      // Also try with explicit options
+      cookieStore.set(cookieName, "", {
+        maxAge: 0,
+        path: "/",
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      });
+    } catch (err) {
+      // Ignore errors, cookie might not exist
+      console.debug(`[SESSION] Could not delete cookie: ${cookieName}`);
+    }
+  }
+
+  console.log("[SESSION] All session cookies cleared");
 }
 
 /**

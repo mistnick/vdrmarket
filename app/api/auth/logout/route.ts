@@ -25,10 +25,12 @@ export async function POST(request: NextRequest) {
       }).catch(err => console.error("Failed to create audit log:", err));
     }
 
-    // Delete session
+    // Delete custom session and all auth cookies
     await deleteSession();
 
-    return NextResponse.json({ success: true });
+    console.log("[LOGOUT] Session deleted successfully");
+
+    return NextResponse.json({ success: true, redirect: "/" });
   } catch (error) {
     console.error("Logout error:", error);
     return NextResponse.json(
@@ -39,6 +41,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  // Support GET for direct navigation
-  return POST(request);
+  // Support GET for direct navigation - redirect to logout page
+  return NextResponse.redirect(new URL("/auth/logout", request.url));
 }
+
