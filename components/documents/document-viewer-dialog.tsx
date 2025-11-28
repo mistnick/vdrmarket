@@ -133,15 +133,21 @@ export function DocumentViewerDialog({
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogPortal>
-                <DialogOverlay className="bg-black/20 backdrop-blur-sm" />
+                <DialogOverlay className="bg-black/50 backdrop-blur-sm" />
                 <DialogPrimitive.Content
                     className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
                     onInteractOutside={(e) => e.preventDefault()}
                 >
+                    {/* Hidden accessibility elements */}
+                    <DialogPrimitive.Title className="sr-only">{document.name}</DialogPrimitive.Title>
+                    <DialogPrimitive.Description className="sr-only">
+                        Secure document viewer for {document.name}. Drag the header to move, resize from corners.
+                    </DialogPrimitive.Description>
+
                     <Rnd
                         default={{
-                            x: 0,
-                            y: 0,
+                            x: typeof window !== 'undefined' ? window.innerWidth / 2 - 512 : 0,
+                            y: typeof window !== 'undefined' ? window.innerHeight / 2 - 384 : 0,
                             width: 1024,
                             height: 768,
                         }}
@@ -153,12 +159,6 @@ export function DocumentViewerDialog({
                         disableDragging={isMaximized}
                         size={isMaximized ? { width: "100%", height: "100%" } : undefined}
                         position={isMaximized ? { x: 0, y: 0 } : undefined}
-                        onDragStop={(e, d) => {
-                            if (isMaximized) return;
-                        }}
-                        onResizeStop={(e, direction, ref, delta, position) => {
-                            if (isMaximized) return;
-                        }}
                     >
                         <div className="flex flex-col w-full h-full bg-background border rounded-lg shadow-2xl overflow-hidden">
                             {/* Header - Draggable Area */}
