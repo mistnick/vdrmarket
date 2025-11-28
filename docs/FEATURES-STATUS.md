@@ -1,22 +1,24 @@
 # DataRoom - Features Status & Analysis
 
-**Data:** 21 Novembre 2025  
+**Data:** 27 Novembre 2025  
 **Stato Build:** ✅ Successful (45 routes)  
-**Versione:** Post-Authentication Refactoring  
+**Versione:** Post-Authentication Refactoring + Secure Viewer Implementation  
 
 ---
 
 ## 📊 Executive Summary
 
-### 🟢 Implemented & Working (60%)
+### 🟢 Implemented & Working (65%)
 - ✅ Custom Authentication System (Email/Password)
 - ✅ Document Management (Upload, List, View)
 - ✅ Share Links with Protection (Password, Email, Expiration)
-- ✅ PDF Watermarking System
+- ✅ PDF Watermarking System (Dynamic with IP, timestamp, username)
+- ✅ **Secure Document Viewer** (NEW - Screenshot/Print/Copy Protection)
 - ✅ Team Management (Create, Members, Roles)
 - ✅ Data Rooms (Create, Permissions, Folders)
 - ✅ Document Analytics (Views, Downloads Tracking)
 - ✅ Notification System (Database-backed)
+- ✅ Security Violation Logging (Audit trail for protection events)
 - ✅ Drag & Drop Components (Created but not integrated)
 - ✅ Email Templates (Ready but not sending)
 
@@ -122,6 +124,7 @@
 - **Download Control**: Enable/disable downloads
 - **Notifications**: Owner notified on link views
 - **Feedback Collection**: (toggle available)
+- **Secure Viewer**: Full screenshot/print/copy protection with watermarks (NEW)
 
 #### ❌ Missing Features:
 - **Link Analytics Dashboard**: Charts, geographic distribution
@@ -343,18 +346,54 @@
 
 ---
 
-### 11. Testing & Quality Assurance
+### 11. Secure Document Viewer (NEW - v2.0)
+
+#### ✅ Fully Implemented:
+- **Enhanced Secure Viewer Component**: `components/viewer/enhanced-secure-viewer.tsx`
+  - PDF and image viewing with zoom/navigation
+  - Client-side only rendering (SSR-safe)
+  - Fullscreen mode with persistent protections
+- **Dynamic Watermarks**: `components/viewer/watermark-overlay.tsx`
+  - Viewer email + username + IP address + real-time timestamp
+  - Animated watermarks for screenshot defeat
+  - Anti-DOM manipulation detection with MutationObserver
+  - Corner watermarks for additional coverage
+- **Security Protection Hook**: `hooks/use-security-protection.ts`
+  - Centralized security management
+  - Print blocking (keyboard + CSS media query)
+  - Copy/paste prevention with keyboard interception
+  - Context menu blocking
+  - Drag operation prevention
+  - Screenshot shortcut blocking (macOS: Cmd+Shift+3/4/5)
+  - Window blur/focus detection with overlay
+  - Basic DevTools detection
+- **Security Violation Logging**: `/api/public/[slug]/security-event`
+  - Tracks print_attempt, screenshot_attempt, copy_attempt
+  - Logs focus_loss, devtools_open, visibility_hidden
+  - Full metadata: violation type, count, viewer email, IP, timestamp, user agent
+  - Integrated with audit_logs table
+- **E2E Tests**: `e2e/secure-viewer.spec.ts`
+  - Tests for all security protections
+  - 7 Playwright test cases
+
+#### 🎯 Priority: **COMPLETE** - Core DRM Implemented
+
+---
+
+### 12. Testing & Quality Assurance
 
 #### ✅ Currently Working:
 - **Jest Configuration**: `jest.config.ts` setup
 - **Basic Session Tests**: `__tests__/lib/auth/session.test.ts` (7 test cases)
 - **Mocking**: Prisma, next/headers mocked
+- **Secure Viewer E2E Tests**: `e2e/secure-viewer.spec.ts` (7 tests) ✅ NEW
 
 #### ⚠️ Partially Implemented:
 - **Playwright E2E**: 
   - ✅ Configuration exists (`playwright.config.ts`)
   - ✅ Skeleton tests in `/e2e/auth.spec.ts`
-  - ❌ Tests have TODO comments, not implemented
+  - ✅ Secure viewer tests in `/e2e/secure-viewer.spec.ts` - PASSING
+  - ❌ Other tests have TODO comments, not implemented
 - **Storage Provider Tests**:
   - ✅ File exists (`__tests__/lib/storage/providers.test.ts`)
   - ❌ TypeScript errors (import issues)

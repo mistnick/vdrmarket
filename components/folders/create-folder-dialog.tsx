@@ -144,7 +144,7 @@ export function CreateFolderDialog({
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
                             <Label htmlFor="name">
-                                Folder Name <span className="text-red-500">*</span>
+                                Folder Name <span className="text-destructive">*</span>
                             </Label>
                             <Input
                                 id="name"
@@ -154,10 +154,10 @@ export function CreateFolderDialog({
                                     setFormData({ ...formData, name: e.target.value })
                                 }
                                 disabled={loading}
-                                className={errors.name ? "border-red-500" : ""}
+                                className={errors.name ? "border-destructive" : ""}
                             />
                             {errors.name && (
-                                <p className="text-sm text-red-500">{errors.name}</p>
+                                <p className="text-sm text-destructive">{errors.name}</p>
                             )}
                         </div>
 
@@ -171,11 +171,11 @@ export function CreateFolderDialog({
                                     setFormData({ ...formData, description: e.target.value })
                                 }
                                 disabled={loading}
-                                className={errors.description ? "border-red-500" : ""}
+                                className={errors.description ? "border-destructive" : ""}
                                 rows={3}
                             />
                             {errors.description && (
-                                <p className="text-sm text-red-500">{errors.description}</p>
+                                <p className="text-sm text-destructive">{errors.description}</p>
                             )}
                             <p className="text-xs text-muted-foreground">
                                 {formData.description.length}/500 characters

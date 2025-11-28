@@ -37,14 +37,14 @@ export function AppHeader({ user }: AppHeaderProps) {
   const { t, language, setLanguage } = useI18n();
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-card">
       <div className="flex h-16 items-center gap-4 px-6">
         {/* Logo */}
         <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600">
-            <span className="text-sm font-bold text-white">DR</span>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-success">
+            <span className="text-sm font-bold text-success-foreground">DR</span>
           </div>
-          <span className="text-lg font-semibold text-gray-900">DataRoom</span>
+          <span className="text-lg font-semibold text-foreground">DataRoom</span>
         </Link>
 
         {/* Search */}
@@ -70,26 +70,26 @@ export function AppHeader({ user }: AppHeaderProps) {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button variant="ghost" size="icon" className="text-gray-600">
+          <Button variant="ghost" size="icon" className="text-muted-foreground">
             <HelpCircle className="h-5 w-5" />
           </Button>
 
-          <Button variant="ghost" size="icon" className="text-gray-600 relative">
+          <Button variant="ghost" size="icon" className="text-muted-foreground relative">
             <Bell className="h-5 w-5" />
-            <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white text-xs border-2 border-white">
+            <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-destructive text-destructive-foreground text-xs border-2 border-card">
               3
             </Badge>
           </Button>
 
-          <Button variant="ghost" size="icon" className="text-gray-600">
+          <Button variant="ghost" size="icon" className="text-muted-foreground">
             <Settings className="h-5 w-5" />
           </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                <Avatar className="h-9 w-9 border-2 border-gray-200">
-                  <AvatarFallback className="bg-emerald-100 text-emerald-700 font-semibold">
+                <Avatar className="h-9 w-9 border-2 border-border">
+                  <AvatarFallback className="bg-success/10 text-success font-semibold">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
@@ -98,10 +98,10 @@ export function AppHeader({ user }: AppHeaderProps) {
             <DropdownMenuContent className="w-56" align="end">
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-foreground">
                     {user?.name || "User"}
                   </p>
-                  <p className="text-xs text-gray-500">{user?.email}</p>
+                  <p className="text-xs text-muted-foreground">{user?.email}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -117,7 +117,7 @@ export function AppHeader({ user }: AppHeaderProps) {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
-                <Link href="/api/auth/logout" className="w-full text-red-600">
+                <Link href="/api/auth/logout" className="w-full text-destructive">
                   {t("common.signOut")}
                 </Link>
               </DropdownMenuItem>

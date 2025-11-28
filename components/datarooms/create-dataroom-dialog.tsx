@@ -188,11 +188,11 @@ export function CreateDataRoomDialog({
                 {/* Progress Indicator */}
                 <div className="flex gap-2 mb-4">
                     <div
-                        className={`flex-1 h-1.5 rounded-full ${currentStep >= 1 ? "bg-blue-600" : "bg-slate-200"
+                        className={`flex-1 h-1.5 rounded-full ${currentStep >= 1 ? "bg-primary" : "bg-muted"
                             }`}
                     />
                     <div
-                        className={`flex-1 h-1.5 rounded-full ${currentStep >= 2 ? "bg-blue-600" : "bg-slate-200"
+                        className={`flex-1 h-1.5 rounded-full ${currentStep >= 2 ? "bg-primary" : "bg-muted"
                             }`}
                     />
                 </div>
@@ -202,7 +202,7 @@ export function CreateDataRoomDialog({
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
                             <Label htmlFor="name">
-                                Data Room Name <span className="text-red-500">*</span>
+                                Data Room Name <span className="text-destructive">*</span>
                             </Label>
                             <Input
                                 id="name"
@@ -211,10 +211,10 @@ export function CreateDataRoomDialog({
                                 onChange={(e) =>
                                     setFormData({ ...formData, name: e.target.value })
                                 }
-                                className={errors.name ? "border-red-500" : ""}
+                                className={errors.name ? "border-destructive" : ""}
                             />
                             {errors.name && (
-                                <p className="text-sm text-red-500">{errors.name}</p>
+                                <p className="text-sm text-destructive">{errors.name}</p>
                             )}
                         </div>
 
@@ -227,11 +227,11 @@ export function CreateDataRoomDialog({
                                 onChange={(e) =>
                                     setFormData({ ...formData, description: e.target.value })
                                 }
-                                className={errors.description ? "border-red-500" : ""}
+                                className={errors.description ? "border-destructive" : ""}
                                 rows={4}
                             />
                             {errors.description && (
-                                <p className="text-sm text-red-500">{errors.description}</p>
+                                <p className="text-sm text-destructive">{errors.description}</p>
                             )}
                             <p className="text-xs text-muted-foreground">
                                 {formData.description.length}/1000 characters
@@ -277,7 +277,7 @@ export function CreateDataRoomDialog({
                             {formData.requirePassword && (
                                 <div className="grid gap-2 pl-4 border-l-2">
                                     <Label htmlFor="password">
-                                        Password <span className="text-red-500">*</span>
+                                        Password <span className="text-destructive">*</span>
                                     </Label>
                                     <Input
                                         id="password"
@@ -287,21 +287,21 @@ export function CreateDataRoomDialog({
                                         onChange={(e) =>
                                             setFormData({ ...formData, password: e.target.value })
                                         }
-                                        className={errors.password ? "border-red-500" : ""}
+                                        className={errors.password ? "border-destructive" : ""}
                                     />
                                     {errors.password && (
-                                        <p className="text-sm text-red-500">{errors.password}</p>
+                                        <p className="text-sm text-destructive">{errors.password}</p>
                                     )}
                                 </div>
                             )}
                         </div>
 
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="bg-info/10 border border-info/20 rounded-lg p-4">
                             <div className="flex items-start gap-2">
-                                <CheckCircle2 className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                <CheckCircle2 className="h-5 w-5 text-info flex-shrink-0 mt-0.5" />
                                 <div className="text-sm">
-                                    <p className="font-medium text-blue-900 mb-1">Ready to create</p>
-                                    <p className="text-blue-700">
+                                    <p className="font-medium text-info mb-1">Ready to create</p>
+                                    <p className="text-info/80">
                                         Your data room will be created with {formData.isPublic ? "public" : "private"} access
                                         {formData.requirePassword && " and password protection"}.
                                     </p>

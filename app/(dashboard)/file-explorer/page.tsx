@@ -43,6 +43,7 @@ import {
   FilePlus,
   Share2,
   Pencil,
+  Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -66,6 +67,7 @@ import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { toast } from "sonner";
 import { VersionHistoryDialog } from "@/components/documents/version-history-dialog";
 import { UploadVersionDialog } from "@/components/documents/upload-version-dialog";
+import { DocumentViewerDialog } from "@/components/documents/document-viewer-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -339,6 +341,7 @@ function ContentTreeRow({
   onDelete,
   onVersionHistory,
   onUploadVersion,
+  onViewDocument,
 }: {
   item: FileItem;
   level?: number;
@@ -354,6 +357,7 @@ function ContentTreeRow({
   onDelete: (item: FileItem) => void;
   onVersionHistory: (item: FileItem) => void;
   onUploadVersion: (item: FileItem) => void;
+  onViewDocument: (item: FileItem) => void;
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const isExpanded = expandedIds.has(item.id);
@@ -373,7 +377,9 @@ function ContentTreeRow({
   }
 
   const handleRowClick = () => {
-    if (!isFile) {
+    if (isFile) {
+      onViewDocument(item);
+    } else {
       onNavigate(item);
     }
   };
@@ -520,6 +526,20 @@ function ContentTreeRow({
                 className="h-8 w-8"
                 onClick={(e) => {
                   e.stopPropagation();
+                  onViewDocument(item);
+                }}
+                title="View"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            )}
+            {isFile && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={(e) => {
+                  e.stopPropagation();
                   onDownload(item);
                 }}
                 title="Download"
@@ -552,11 +572,19 @@ function ContentTreeRow({
                   <>
                     <DropdownMenuItem onClick={(e) => {
                       e.stopPropagation();
+                      onViewDocument(item);
+                    }}>
+                      <Eye className="mr-2 h-4 w-4" />
+                      View
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
                       onDownload(item);
                     }}>
                       <Download className="mr-2 h-4 w-4" />
                       Download
                     </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={(e) => {
                       e.stopPropagation();
                       onVersionHistory(item);
@@ -643,6 +671,7 @@ function ContentTreeRow({
             onDelete={onDelete}
             onVersionHistory={onVersionHistory}
             onUploadVersion={onUploadVersion}
+            onViewDocument={onViewDocument}
           />
         ))}
     </>
@@ -688,6 +717,10 @@ export default function FileExplorerPage() {
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
   const [uploadVersionOpen, setUploadVersionOpen] = useState(false);
   const [versioningItem, setVersioningItem] = useState<FileItem | null>(null);
+
+  // Document viewer states
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerDocument, setViewerDocument] = useState<FileItem | null>(null);
 
   // Fetch team ID
   useEffect(() => {
@@ -1742,18 +1775,18 @@ export default function FileExplorerPage() {
 
         {/* Left Panel - Navigation Tree */}
         <Card
-          className="w-64 shrink-0 border-border/60 h-full"
+          className="w-64 shrink-0 border-border/60 h-full overflow-hidden"
           onDragOver={(e) => {
             e.preventDefault();
             if (!draggedItem) setIsExternalDragOver(true);
           }}
           onDrop={handleExternalDrop}
         >
-          <CardContent className="p-0 h-full">
-            <div className="p-3 border-b border-border/60">
+          <CardContent className="p-0 h-full flex flex-col">
+            <div className="p-3 border-b border-border/60 shrink-0">
               <h3 className="text-sm font-semibold text-foreground">Virtual Data Rooms</h3>
             </div>
-            <ScrollArea className="h-[calc(100%-48px)]">
+            <ScrollArea className="flex-1 overflow-y-auto">
               <div className="p-2">
                 {dataRooms.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground text-sm">
@@ -1947,6 +1980,10 @@ export default function FileExplorerPage() {
                         onDelete={handleDeleteClick}
                         onVersionHistory={handleVersionHistory}
                         onUploadVersion={handleUploadVersion}
+                        onViewDocument={(item) => {
+                          setViewerDocument(item);
+                          setViewerOpen(true);
+                        }}
                       />
                     ))
                   )}
@@ -2158,6 +2195,19 @@ export default function FileExplorerPage() {
           }}
         />
       )}
+
+      {/* Document Viewer Dialog */}
+      <DocumentViewerDialog
+        open={viewerOpen}
+        onOpenChange={setViewerOpen}
+        document={viewerDocument ? {
+          id: viewerDocument.id,
+          name: viewerDocument.name,
+          fileType: viewerDocument.fileType || "application/octet-stream",
+          size: viewerDocument.size,
+        } : null}
+        allowDownload={true}
+      />
     </div>
   );
 }

@@ -64,12 +64,12 @@ function SortableItem({ item }: { item: DraggableItem }) {
       {...listeners}
       className="cursor-move"
     >
-      <Card className="p-4 mb-2 hover:bg-slate-50 transition-colors">
+      <Card className="p-4 mb-2 hover:bg-accent transition-colors">
         <div className="flex items-center gap-3">
           {item.type === "folder" ? (
-            <Folder className="w-5 h-5 text-blue-500" />
+            <Folder className="w-5 h-5 text-primary" />
           ) : (
-            <FileText className="w-5 h-5 text-slate-500" />
+            <FileText className="w-5 h-5 text-muted-foreground" />
           )}
           <span className="font-medium">{item.name}</span>
         </div>
@@ -168,12 +168,12 @@ export function DraggableFolderList({
 
       <DragOverlay>
         {activeItem && (
-          <Card className="p-4 shadow-lg border-2 border-blue-500 bg-white">
+          <Card className="p-4 shadow-lg border-2 border-primary bg-background">
             <div className="flex items-center gap-3">
               {activeItem.type === "folder" ? (
-                <Folder className="w-5 h-5 text-blue-500" />
+                <Folder className="w-5 h-5 text-primary" />
               ) : (
-                <FileText className="w-5 h-5 text-slate-500" />
+                <FileText className="w-5 h-5 text-muted-foreground" />
               )}
               <span className="font-medium">{activeItem.name}</span>
             </div>
@@ -226,8 +226,8 @@ export function FolderTree({ tree, onMove, onSelect, selectedId }: FolderTreePro
         <div
           className={`
             flex items-center gap-2 p-2 rounded cursor-pointer
-            hover:bg-slate-100 transition-colors
-            ${isSelected ? "bg-blue-50 border border-blue-200" : ""}
+            hover:bg-accent transition-colors
+            ${isSelected ? "bg-primary/10 border border-primary/20" : ""}
           `}
           style={{ paddingLeft: `${depth * 20 + 8}px` }}
           onClick={() => {
@@ -239,17 +239,17 @@ export function FolderTree({ tree, onMove, onSelect, selectedId }: FolderTreePro
         >
           {node.type === "folder" ? (
             <>
-              <Folder className={`w-4 h-4 ${isExpanded ? "text-blue-600" : "text-blue-400"}`} />
+              <Folder className={`w-4 h-4 ${isExpanded ? "text-primary" : "text-primary/60"}`} />
               <span className="text-sm font-medium">{node.name}</span>
               {hasChildren && (
-                <span className="ml-auto text-xs text-slate-500">
+                <span className="ml-auto text-xs text-muted-foreground">
                   {node.children!.length}
                 </span>
               )}
             </>
           ) : (
             <>
-              <FileText className="w-4 h-4 text-slate-400" />
+              <FileText className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm">{node.name}</span>
             </>
           )}

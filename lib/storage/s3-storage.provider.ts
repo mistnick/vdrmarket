@@ -110,19 +110,17 @@ export class S3StorageProvider implements IStorageProvider {
     });
 
     const response = await this.client.send(command);
-    const stream = response.Body as ReadableStream;
-
-    // Convert stream to buffer
-    const chunks: Uint8Array[] = [];
-    const reader = stream.getReader();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
+    
+    // AWS SDK v3 returns a Readable stream (Node.js), not a web ReadableStream
+    // Use transformToByteArray which is available on the response body
+    if (!response.Body) {
+      throw new Error('No body in response');
     }
 
-    return Buffer.concat(chunks);
+    // The Body is a Readable stream in Node.js environment
+    // Convert it to Buffer using the built-in method
+    const bodyContents = await response.Body.transformToByteArray();
+    return Buffer.from(bodyContents);
   }
 
   async getSignedUrl(

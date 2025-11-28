@@ -13,11 +13,14 @@ import {
     Plus,
     Upload,
     Lock,
-    Globe
+    Globe,
+    Eye,
+    Download
 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { DataRoomPermissions } from "@/components/datarooms/dataroom-permissions";
+import { DocumentViewerDialog } from "@/components/documents/document-viewer-dialog";
 
 export default function DataRoomDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const unwrappedParams = use(params);
@@ -28,6 +31,10 @@ export default function DataRoomDetailPage({ params }: { params: Promise<{ id: s
     const [permissions, setPermissions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    
+    // Document viewer states
+    const [viewerOpen, setViewerOpen] = useState(false);
+    const [viewerDocument, setViewerDocument] = useState<any | null>(null);
 
     useEffect(() => {
         fetchDataRoomDetails();
@@ -235,7 +242,11 @@ export default function DataRoomDetailPage({ params }: { params: Promise<{ id: s
                             {documents.map((doc: any) => (
                                 <div
                                     key={doc.id}
-                                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent transition-colors"
+                                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent transition-colors cursor-pointer"
+                                    onClick={() => {
+                                        setViewerDocument(doc);
+                                        setViewerOpen(true);
+                                    }}
                                 >
                                     <div className="flex items-center gap-3">
                                         <FileText className="w-5 h-5 text-muted-foreground" />
@@ -247,9 +258,30 @@ export default function DataRoomDetailPage({ params }: { params: Promise<{ id: s
                                             </p>
                                         </div>
                                     </div>
-                                    <Button variant="ghost" size="sm" onClick={() => router.push(`/file-explorer`)}>
-                                        Open in Explorer
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setViewerDocument(doc);
+                                                setViewerOpen(true);
+                                            }}
+                                        >
+                                            <Eye className="w-4 h-4 mr-2" />
+                                            View
+                                        </Button>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                router.push(`/file-explorer`);
+                                            }}
+                                        >
+                                            Open in Explorer
+                                        </Button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -259,6 +291,19 @@ export default function DataRoomDetailPage({ params }: { params: Promise<{ id: s
 
             {/* Permissions */}
             <DataRoomPermissions dataRoomId={unwrappedParams.id} />
+
+            {/* Document Viewer Dialog */}
+            <DocumentViewerDialog
+                open={viewerOpen}
+                onOpenChange={setViewerOpen}
+                document={viewerDocument ? {
+                    id: viewerDocument.id,
+                    name: viewerDocument.name,
+                    fileType: viewerDocument.fileType || "application/octet-stream",
+                    size: viewerDocument.fileSize,
+                } : null}
+                allowDownload={true}
+            />
         </div>
     );
 }

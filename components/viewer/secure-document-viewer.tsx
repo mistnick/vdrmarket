@@ -117,7 +117,7 @@ export function SecureDocumentViewer({
     };
 
     return (
-        <div className="relative h-full w-full overflow-hidden bg-gray-100">
+        <div className="relative h-full w-full overflow-hidden bg-muted">
             {/* Watermark overlay */}
             <WatermarkOverlay
                 userName={userName}
@@ -126,7 +126,7 @@ export function SecureDocumentViewer({
             />
 
             {/* Viewer controls */}
-            <div className="sticky top-0 z-40 bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between">
+            <div className="sticky top-0 z-40 bg-background border-b border-border px-4 py-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <Button
                         variant="outline"
@@ -159,7 +159,7 @@ export function SecureDocumentViewer({
                     </Button>
                 </div>
 
-                <div className="text-sm font-medium text-gray-700">
+                <div className="text-sm font-medium text-muted-foreground">
                     {documentName}
                 </div>
             </div>

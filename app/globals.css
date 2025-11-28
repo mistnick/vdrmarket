@@ -1,42 +1,112 @@
 @import "tailwindcss";
-@import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/* 
+ * DataRoom VDR Theme - Tailwind v4
+ * Brand Colors:
+ * - Primary Blue: #3498DB (Flat UI Blue)
+ * - Accent Blue: #5DADE2 (Light Sky Blue)
+ * - Secondary: #2980B9 (Darker Blue)
+ * - Success: #27AE60 (Emerald Green)
+ * - Warning: #F39C12 (Orange)
+ * - Danger: #E74C3C (Alizarin Red)
+ * - Neutral Gray: #7F8C8D (Concrete Gray)
+ * - Background: #FFFFFF
+ */
 
-@source "../components/**/*.{js,ts,jsx,tsx}";
-@source "../app/**/*.{js,ts,jsx,tsx}";
-@source "../lib/**/*.{js,ts,jsx,tsx}";
-
-@layer utilities {
-  body {
-    font-family: "Manrope", "Inter", -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  }
-
-  .text-balance {
-    text-wrap: balance;
-  }
+/* CSS Variables for theme colors - used by Tailwind v4 @theme */
+:root {
+  --radius: 0.5rem;
+  
+  /* Light theme */
+  --background: #FFFFFF;
+  --foreground: #2C3E50;
+  --card: #FFFFFF;
+  --card-foreground: #2C3E50;
+  --popover: #FFFFFF;
+  --popover-foreground: #2C3E50;
+  --primary: #3498DB;
+  --primary-foreground: #FFFFFF;
+  --secondary: #ECF0F1;
+  --secondary-foreground: #2C3E50;
+  --muted: #ECF0F1;
+  --muted-foreground: #7F8C8D;
+  --accent: #5DADE2;
+  --accent-foreground: #FFFFFF;
+  --destructive: #E74C3C;
+  --destructive-foreground: #FFFFFF;
+  --border: #BDC3C7;
+  --input: #BDC3C7;
+  --ring: #3498DB;
+  
+  /* Sidebar */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #2C3E50;
+  --sidebar-accent: #EBF5FB;
+  --sidebar-accent-foreground: #2C3E50;
+  --sidebar-border: #D5DBDB;
+  --sidebar-primary: #3498DB;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-muted: #ECF0F1;
+  --sidebar-muted-foreground: #7F8C8D;
+  
+  /* Chart colors */
+  --chart-1: #3498DB;
+  --chart-2: #2ECC71;
+  --chart-3: #9B59B6;
+  --chart-4: #F39C12;
+  --chart-5: #1ABC9C;
+  
+  /* Status colors */
+  --success: #27AE60;
+  --success-foreground: #FFFFFF;
+  --warning: #F39C12;
+  --warning-foreground: #FFFFFF;
+  --info: #3498DB;
+  --info-foreground: #FFFFFF;
+  
+  /* Brand colors */
+  --brand-blue: #3498DB;
+  --brand-accent: #5DADE2;
+  --brand-secondary: #2980B9;
+  --brand-gray: #7F8C8D;
 }
 
-/*
-  Tailwind CSS v4 border-color compatibility
-  The default border color has changed to currentColor in Tailwind CSS v4
-*/
-@layer base {
-
-  *,
-  ::after,
-  ::before,
-  ::backdrop,
-  ::file-selector-button {
-    border-color: var(--color-border, currentColor);
-  }
+.dark {
+  --background: #1A252F;
+  --foreground: #ECF0F1;
+  --card: #2C3E50;
+  --card-foreground: #ECF0F1;
+  --popover: #2C3E50;
+  --popover-foreground: #ECF0F1;
+  --primary: #5DADE2;
+  --primary-foreground: #1A252F;
+  --secondary: #34495E;
+  --secondary-foreground: #ECF0F1;
+  --muted: #34495E;
+  --muted-foreground: #95A5A6;
+  --accent: #85C1E9;
+  --accent-foreground: #1A252F;
+  --destructive: #E74C3C;
+  --destructive-foreground: #FFFFFF;
+  --border: #34495E;
+  --input: #34495E;
+  --ring: #5DADE2;
+  
+  /* Sidebar dark */
+  --sidebar: #1A252F;
+  --sidebar-foreground: #ECF0F1;
+  --sidebar-accent: #2C3E50;
+  --sidebar-accent-foreground: #ECF0F1;
+  --sidebar-border: #34495E;
+  --sidebar-primary: #5DADE2;
+  --sidebar-primary-foreground: #1A252F;
+  --sidebar-muted: #2C3E50;
+  --sidebar-muted-foreground: #95A5A6;
 }
 
+/* Tailwind v4 Theme Configuration */
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* Map CSS variables to Tailwind color utilities */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -52,89 +122,79 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  
+  /* Sidebar colors */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-muted-foreground: var(--sidebar-muted-foreground);
+  
+  /* Chart colors */
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+  
+  /* Status colors */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  
+  /* Brand colors */
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-gray: var(--brand-gray);
+  
+  /* Radius tokens */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-:root {
-  /* Border Radius - Slightly tighter for professional look */
-  --radius: 0.5rem;
-
-  /* Base Colors */
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  /* Darker text for better contrast */
-
-  /* Cards & Surfaces */
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-
-  /* Primary - Emerald Green #10B981 (Tailwind Emerald 500) */
-  --primary: oklch(0.623 0.188 145.205);
-  --primary-foreground: oklch(1 0 0);
-
-  /* Secondary - Light Gray Surface */
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-
-  /* Muted - Subtle backgrounds */
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-
-  /* Accent - Interactive states */
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-
-  /* Destructive - Red */
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(1 0 0);
-
-  /* Borders - Crisp and subtle */
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.623 0.188 145.205);
-
-  /* Charts */
-  --chart-1: oklch(0.623 0.188 145.205);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.682 0.176 84);
-  --chart-4: oklch(0.628 0.224 27);
-  --chart-5: oklch(0.769 0.188 70.08);
-
-  /* Sidebar */
-  --sidebar: oklch(0.985 0 0);
-  /* Very slight off-white for separation */
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.623 0.188 145.205);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.96 0 0);
-  --sidebar-accent-foreground: oklch(0.145 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.623 0.188 145.205);
-}
-
+/* Base Layer */
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
-
+  
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Print Protection */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  body::after {
+    content: "Printing is disabled for security reasons.";
+    visibility: visible;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    font-weight: bold;
+    color: #000;
+    text-align: center;
+    width: 100%;
   }
 }

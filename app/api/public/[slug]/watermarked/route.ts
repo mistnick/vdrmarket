@@ -79,7 +79,8 @@ export async function GET(
     const documentBuffer = await storage.download(link.document.file);
 
     // Generate watermark text
-    const watermarkText = generateWatermarkText(viewerEmail);
+    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0] || "Unknown IP";
+    const watermarkText = `${viewerEmail} • ${ipAddress} • ${new Date().toISOString()}`;
     const watermarkedPdf = await addWatermarkToPDF(documentBuffer, { text: watermarkText, opacity: 0.3, fontSize: 20, rotation: -45, color: { r: 0.5, g: 0.5, b: 0.5 } });
 
     // Create audit log

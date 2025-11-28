@@ -180,13 +180,13 @@ export function VersionHistoryDialog({
                                     {/* Timeline dot */}
                                     <div
                                         className={`relative z-10 flex items-center justify-center w-12 h-12 rounded-full border-2 ${version.versionNumber === currentVersion
-                                            ? "bg-emerald-100 border-emerald-600"
-                                            : "bg-white border-border"
+                                            ? "bg-success/10 border-success"
+                                            : "bg-background border-border"
                                             }`}
                                     >
                                         <span
                                             className={`text-sm font-bold ${version.versionNumber === currentVersion
-                                                ? "text-emerald-600"
+                                                ? "text-success"
                                                 : "text-muted-foreground"
                                                 }`}
                                         >

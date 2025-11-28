@@ -30,26 +30,26 @@ export function StatCard({
   return (
     <div
       className={cn(
-        'bg-white rounded-lg border border-gray-200 p-4 sm:p-6',
-        'hover:border-emerald-200 hover:shadow-sm transition-all',
+        'bg-card rounded-lg border border-border p-4 sm:p-6',
+        'hover:border-success/50 hover:shadow-sm transition-all',
         'min-h-[120px] flex flex-col',
         className
       )}
     >
       <div className="flex items-start justify-between">
         <div className="space-y-1 sm:space-y-2 flex-1">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             {displayTitle}
           </p>
-          <p className="text-2xl sm:text-3xl font-bold text-gray-900">{value}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-foreground">{value}</p>
           {description && (
-            <p className="text-xs sm:text-sm text-gray-600">{description}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">{description}</p>
           )}
           {trend && (
             <p
               className={cn(
                 'text-xs sm:text-sm font-medium',
-                isPositive ? 'text-emerald-600' : 'text-red-600'
+                isPositive ? 'text-success' : 'text-destructive'
               )}
             >
               {trend.value}
@@ -57,8 +57,8 @@ export function StatCard({
           )}
         </div>
         {Icon && (
-          <div className="p-2 sm:p-2.5 rounded-lg bg-emerald-50">
-            <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" strokeWidth={1.5} />
+          <div className="p-2 sm:p-2.5 rounded-lg bg-success/10">
+            <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-success" strokeWidth={1.5} />
           </div>
         )}
       </div>

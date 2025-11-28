@@ -20,11 +20,11 @@ export default async function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="lg:grid lg:grid-cols-12 lg:gap-8">
             <div className="sm:text-center md:max-w-2xl md:mx-auto lg:col-span-6 lg:text-left">
-              <h1 className="text-4xl font-bold text-gray-900 tracking-tight sm:text-5xl md:text-6xl">
+              <h1 className="text-4xl font-bold text-foreground tracking-tight sm:text-5xl md:text-6xl">
                 Secure Document Sharing
-                <span className="block text-emerald-600">Made Simple</span>
+                <span className="block text-success">Made Simple</span>
               </h1>
-              <p className="mt-3 text-base text-gray-500 sm:mt-5 sm:text-xl lg:text-lg xl:text-xl">
+              <p className="mt-3 text-base text-muted-foreground sm:mt-5 sm:text-xl lg:text-lg xl:text-xl">
                 Share confidential documents securely with advanced tracking, granular permissions,
                 and audit trails. Perfect for M&A, fundraising, and due diligence.
               </p>
@@ -32,7 +32,7 @@ export default async function Home() {
                 <Link href="/auth/signup">
                   <Button
                     size="lg"
-                    className="text-lg rounded-full bg-emerald-600 hover:bg-emerald-700"
+                    className="text-lg rounded-full bg-success hover:bg-success/90 text-success-foreground"
                   >
                     Start Free Trial
                     <ArrowRight className="ml-2 h-5 w-5" />
@@ -57,18 +57,18 @@ export default async function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="py-16 bg-white w-full">
+      <section className="py-16 bg-card w-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="lg:grid lg:grid-cols-3 lg:gap-8">
             <div>
-              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-emerald-600 text-white">
+              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-success text-success-foreground">
                 <Shield className="h-6 w-6" />
               </div>
               <div className="mt-5">
-                <h2 className="text-lg font-medium text-gray-900">
+                <h2 className="text-lg font-medium text-foreground">
                   Bank-Level Security
                 </h2>
-                <p className="mt-2 text-base text-gray-500">
+                <p className="mt-2 text-base text-muted-foreground">
                   End-to-end encryption, password protection, and domain restrictions
                   ensure your documents stay secure.
                 </p>
@@ -76,14 +76,14 @@ export default async function Home() {
             </div>
 
             <div className="mt-10 lg:mt-0">
-              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-emerald-600 text-white">
+              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-success text-success-foreground">
                 <BarChart3 className="h-6 w-6" />
               </div>
               <div className="mt-5">
-                <h2 className="text-lg font-medium text-gray-900">
+                <h2 className="text-lg font-medium text-foreground">
                   Real-Time Analytics
                 </h2>
-                <p className="mt-2 text-base text-gray-500">
+                <p className="mt-2 text-base text-muted-foreground">
                   Know exactly who viewed your documents, when, and for how long
                   with detailed analytics dashboards.
                 </p>
@@ -91,14 +91,14 @@ export default async function Home() {
             </div>
 
             <div className="mt-10 lg:mt-0">
-              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-emerald-600 text-white">
+              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-success text-success-foreground">
                 <Users className="h-6 w-6" />
               </div>
               <div className="mt-5">
-                <h2 className="text-lg font-medium text-gray-900">
+                <h2 className="text-lg font-medium text-foreground">
                   Team Collaboration
                 </h2>
-                <p className="mt-2 text-base text-gray-500">
+                <p className="mt-2 text-base text-muted-foreground">
                   Invite team members, assign roles, and collaborate seamlessly
                   with workspace sharing and permission management.
                 </p>
@@ -109,18 +109,18 @@ export default async function Home() {
       </section>
 
       {/* Additional Features */}
-      <section className="py-16 bg-gray-50">
+      <section className="py-16 bg-muted/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="lg:grid lg:grid-cols-3 lg:gap-8">
             <div>
-              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-emerald-600 text-white">
+              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-success text-success-foreground">
                 <FileText className="h-6 w-6" />
               </div>
               <div className="mt-5">
-                <h2 className="text-lg font-medium text-gray-900">
+                <h2 className="text-lg font-medium text-foreground">
                   Virtual Data Rooms
                 </h2>
-                <p className="mt-2 text-base text-gray-500">
+                <p className="mt-2 text-base text-muted-foreground">
                   Organize documents into data rooms with folder structures perfect
                   for due diligence and fundraising processes.
                 </p>
@@ -128,14 +128,14 @@ export default async function Home() {
             </div>
 
             <div className="mt-10 lg:mt-0">
-              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-emerald-600 text-white">
+              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-success text-success-foreground">
                 <Database className="h-6 w-6" />
               </div>
               <div className="mt-5">
-                <h2 className="text-lg font-medium text-gray-900">
+                <h2 className="text-lg font-medium text-foreground">
                   Complete Audit Trail
                 </h2>
-                <p className="mt-2 text-base text-gray-500">
+                <p className="mt-2 text-base text-muted-foreground">
                   Comprehensive activity logs track every action for compliance
                   and security requirements with immutable audit trails.
                 </p>
@@ -143,14 +143,14 @@ export default async function Home() {
             </div>
 
             <div className="mt-10 lg:mt-0">
-              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-emerald-600 text-white">
+              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-success text-success-foreground">
                 <Shield className="h-6 w-6" />
               </div>
               <div className="mt-5">
-                <h2 className="text-lg font-medium text-gray-900">
+                <h2 className="text-lg font-medium text-foreground">
                   GDPR Compliant
                 </h2>
-                <p className="mt-2 text-base text-gray-500">
+                <p className="mt-2 text-base text-muted-foreground">
                   Built-in compliance with data export, account deletion, and consent
                   management for global privacy regulations.
                 </p>
@@ -161,14 +161,14 @@ export default async function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 bg-white">
+      <section className="py-16 bg-card">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="lg:grid lg:grid-cols-2 lg:gap-8 lg:items-center">
             <div>
-              <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">
+              <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
                 Ready to secure your documents?
               </h2>
-              <p className="mt-3 max-w-3xl text-lg text-gray-500">
+              <p className="mt-3 max-w-3xl text-lg text-muted-foreground">
                 Join thousands of companies using DataRoom for secure document sharing
                 and comprehensive tracking. Start your free trial today.
               </p>
@@ -177,7 +177,7 @@ export default async function Home() {
               <Link href="/auth/signup">
                 <Button
                   size="lg"
-                  className="text-lg rounded-full bg-emerald-600 hover:bg-emerald-700"
+                  className="text-lg rounded-full bg-success hover:bg-success/90 text-success-foreground"
                 >
                   Start Free Trial
                   <ArrowRight className="ml-3 h-6 w-6" />
@@ -203,51 +203,51 @@ export default async function Home() {
           <div className="grid gap-8 md:grid-cols-4 mb-8">
             <div className="md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600">
-                  <FileText className="h-5 w-5 text-white" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-success">
+                  <FileText className="h-5 w-5 text-success-foreground" />
                 </div>
                 <span className="text-lg font-bold">DataRoom</span>
               </div>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Secure document sharing for modern teams.
               </p>
             </div>
 
             <div>
               <h4 className="font-semibold mb-3">Product</h4>
-              <ul className="space-y-2 text-sm text-gray-500">
-                <li><Link href="#features" className="hover:text-gray-900 transition-colors">Features</Link></li>
-                <li><Link href="/pricing" className="hover:text-gray-900 transition-colors">Pricing</Link></li>
-                <li><Link href="#security" className="hover:text-gray-900 transition-colors">Security</Link></li>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><Link href="#features" className="hover:text-foreground transition-colors">Features</Link></li>
+                <li><Link href="/pricing" className="hover:text-foreground transition-colors">Pricing</Link></li>
+                <li><Link href="#security" className="hover:text-foreground transition-colors">Security</Link></li>
               </ul>
             </div>
 
             <div>
               <h4 className="font-semibold mb-3">Company</h4>
-              <ul className="space-y-2 text-sm text-gray-500">
-                <li><Link href="/about" className="hover:text-gray-900 transition-colors">About</Link></li>
-                <li><Link href="/blog" className="hover:text-gray-900 transition-colors">Blog</Link></li>
-                <li><Link href="/contact" className="hover:text-gray-900 transition-colors">Contact</Link></li>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><Link href="/about" className="hover:text-foreground transition-colors">About</Link></li>
+                <li><Link href="/blog" className="hover:text-foreground transition-colors">Blog</Link></li>
+                <li><Link href="/contact" className="hover:text-foreground transition-colors">Contact</Link></li>
               </ul>
             </div>
 
             <div>
               <h4 className="font-semibold mb-3">Legal</h4>
-              <ul className="space-y-2 text-sm text-gray-500">
-                <li><Link href="/privacy" className="hover:text-gray-900 transition-colors">Privacy</Link></li>
-                <li><Link href="/terms" className="hover:text-gray-900 transition-colors">Terms</Link></li>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link></li>
+                <li><Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link></li>
               </ul>
             </div>
           </div>
 
           <div className="border-t pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} DataRoom. All rights reserved.
             </p>
-            <div className="flex gap-6 text-sm text-gray-500">
-              <Link href="#" className="hover:text-gray-900 transition-colors">Twitter</Link>
-              <Link href="#" className="hover:text-gray-900 transition-colors">GitHub</Link>
-              <Link href="#" className="hover:text-gray-900 transition-colors">LinkedIn</Link>
+            <div className="flex gap-6 text-sm text-muted-foreground">
+              <Link href="#" className="hover:text-foreground transition-colors">Twitter</Link>
+              <Link href="#" className="hover:text-foreground transition-colors">GitHub</Link>
+              <Link href="#" className="hover:text-foreground transition-colors">LinkedIn</Link>
             </div>
           </div>
         </div>

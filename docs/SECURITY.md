@@ -205,22 +205,56 @@ This document provides a comprehensive overview of all security measures impleme
 ### Privacy
 
 #### Watermarking
-- **Dynamic**: Viewer email + timestamp
+- **Dynamic**: Viewer email + username + IP address + timestamp
+- **Animated**: Slight movement to defeat static screenshot capture
 - **Customizable**: Team-specific watermark text
-- **Opacity**: Configurable (default 30%)
-- **Prevention**: Deters unauthorized sharing
+- **Opacity**: Configurable (default 12%)
+- **Coverage**: Multiple watermark instances across document
+- **Anti-Manipulation**: MutationObserver to detect DOM tampering
+- **Corners**: Additional watermarks at document edges
+- **Prevention**: Deters unauthorized sharing and identifies leaks
 
 #### Screenshot Protection
-- **CSS**: `user-select: none` for sensitive content
-- **Events**: Context menu, copy, drag disabled
-- **Limitations**: Browser-level only (not foolproof)
+- **Overlay Blur**: Full-screen black overlay when window loses focus
+- **Visibility Detection**: Monitors page visibility state
+- **Window Blur Detection**: Detects when browser window loses focus
+- **Keyboard Blocking**: Blocks screenshot shortcuts (Cmd+Shift+3/4/5 on macOS)
+- **DevTools Detection**: Basic detection of developer tools opening
+- **Security Alerts**: Visual warning when potential capture is detected
+- **Audit Logging**: Security violations are logged for review
+
+#### Print Protection
+- **Print Dialog Blocking**: Keyboard shortcut (Ctrl/Cmd+P) interception
+- **CSS Print Media**: `@media print { display: none }` to hide content
+- **Low-Resolution Print**: When print is allowed, watermarked low-res version
+- **Print Logging**: All print attempts are logged in audit trail
+
+#### Copy Protection
+- **Keyboard Blocking**: Ctrl/Cmd+C shortcut interception
+- **Selection Disabled**: `user-select: none` CSS property
+- **Context Menu Blocked**: Right-click menu disabled
+- **Drag Prevention**: Drag operations blocked to prevent content extraction
 
 ### Secure Document Viewing
+
+#### Enhanced Secure Viewer
+- **Component**: `EnhancedSecureViewer` with full protection suite
+- **Hook**: `useSecurityProtection` for centralized security management
+- **PDF Support**: react-pdf with client-side only rendering (SSR disabled)
+- **Image Support**: Protected image viewing with all security features
+- **Fullscreen Mode**: Secure fullscreen viewing with persistent protections
 
 #### Content Isolation
 - **Viewer**: Sandboxed iframe for PDF/document rendering
 - **CSP**: Content Security Policy headers (planned)
 - **No Embedding**: Frame-ancestors restriction
+- **Z-Index Management**: Watermarks always on top (z-index: 9999)
+
+#### Security Violation Logging
+- **API Endpoint**: `/api/public/[slug]/security-event`
+- **Tracked Events**: print_attempt, screenshot_attempt, copy_attempt, focus_loss, devtools_open
+- **Metadata**: Violation type, count, viewer email, IP, timestamp, user agent
+- **Audit Integration**: All violations stored in audit_logs table
 
 ---
 
@@ -435,6 +469,23 @@ allowedFileTypes=["application/pdf",...]  # Custom whitelist
 ---
 
 ## Changelog
+
+### 2025-11-27 - Secure Viewer Implementation v2.0
+- ✅ Enhanced Secure Viewer component with comprehensive protections
+- ✅ Dynamic watermarks with IP, timestamp, username, email
+- ✅ Animated watermarks for screenshot defeat
+- ✅ Anti-DOM manipulation detection with MutationObserver
+- ✅ Full-screen blur overlay on window focus loss
+- ✅ Visibility change detection and protection
+- ✅ Print blocking (keyboard + CSS + low-res fallback)
+- ✅ Copy/paste prevention with keyboard interception
+- ✅ Context menu blocking
+- ✅ Drag operation prevention
+- ✅ Screenshot shortcut blocking (macOS: Cmd+Shift+3/4/5)
+- ✅ DevTools detection (basic)
+- ✅ Security violation logging API
+- ✅ E2E tests for security features
+- ✅ SSR-safe PDF rendering with dynamic imports
 
 ### 2025-11-27 - Security Enhancements v1.0
 - ✅ 128-bit link tokens

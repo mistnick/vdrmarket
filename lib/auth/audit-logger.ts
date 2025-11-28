@@ -12,6 +12,7 @@ export type AuditAction =
     | "DOCUMENT_VIEWED"
     | "DOCUMENT_DOWNLOADED"
     | "DOCUMENT_PRINTED"
+    | "DOCUMENT_WATERMARKED"
     | "FOLDER_CREATED"
     | "FOLDER_UPDATED"
     | "FOLDER_DELETED"
@@ -27,7 +28,8 @@ export type AuditAction =
     | "USER_REMOVED"
     | "TEAM_CREATED"
     | "TEAM_UPDATED"
-    | "TEAM_DELETED";
+    | "TEAM_DELETED"
+    | "SECURITY_VIOLATION";
 
 export type ResourceType =
     | "document"

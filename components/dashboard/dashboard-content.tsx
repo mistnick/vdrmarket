@@ -82,8 +82,8 @@ export function DashboardContent({
                 <Card>
                     <CardContent className="pt-6">
                         <div className="flex items-center gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-500/10">
-                                <Link2 className="h-6 w-6 text-blue-500" />
+                            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-info/10">
+                                <Link2 className="h-6 w-6 text-info" />
                             </div>
                             <div>
                                 <p className="text-2xl font-bold">{activeLinks}</p>
@@ -96,8 +96,8 @@ export function DashboardContent({
                 <Card>
                     <CardContent className="pt-6">
                         <div className="flex items-center gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-500/10">
-                                <Eye className="h-6 w-6 text-amber-500" />
+                            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-warning/10">
+                                <Eye className="h-6 w-6 text-warning" />
                             </div>
                             <div>
                                 <p className="text-2xl font-bold">{documentViews}</p>
@@ -110,8 +110,8 @@ export function DashboardContent({
                 <Card>
                     <CardContent className="pt-6">
                         <div className="flex items-center gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-violet-500/10">
-                                <Users className="h-6 w-6 text-violet-500" />
+                            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-secondary">
+                                <Users className="h-6 w-6 text-secondary-foreground" />
                             </div>
                             <div>
                                 <p className="text-2xl font-bold">{totalMembers}</p>

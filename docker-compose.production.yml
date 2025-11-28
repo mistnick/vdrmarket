@@ -8,7 +8,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-dataroom}
-      # Performance tuning
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -61,11 +60,17 @@ services:
     container_name: dataroom-redis
     restart: always
     command: >
-      redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --maxmemory 512mb --maxmemory-policy allkeys-lru --tcp-keepalive 300 --timeout 0
+      redis-server 
+      --appendonly yes 
+      --requirepass ${REDIS_PASSWORD:-redis_secure_password}
+      --maxmemory 512mb 
+      --maxmemory-policy allkeys-lru 
+      --tcp-keepalive 300 
+      --timeout 0
     volumes:
       - redis_data:/data
     healthcheck:
-      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping" ]
+      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secure_password}", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -86,6 +91,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        NODE_ENV: production
     image: dataroom-app:latest
     container_name: dataroom-app
     restart: always
@@ -99,33 +106,42 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dataroom}?schema=public&connection_limit=20&pool_timeout=10
 
       # Auth
-      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://www.simplevdr.com}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       AUTH_SECRET: ${AUTH_SECRET}
       AUTH_TRUST_HOST: "true"
 
-      # Storage (Aruba Cloud Object Storage)
+      # Storage (S3 Compatible - Aruba Cloud / AWS / MinIO)
       STORAGE_PROVIDER: s3
-      AWS_REGION: ${AWS_REGION:-r1-it}
+      AWS_REGION: ${AWS_REGION:-eu-west-1}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET:-dataroom}
-      AWS_ENDPOINT: ${AWS_ENDPOINT:-http://r1-it.storage.cloud.it}
+      AWS_ENDPOINT: ${AWS_ENDPOINT}
       AWS_S3_FORCE_PATH_STYLE: "true"
+      NEXT_PUBLIC_STORAGE_URL: ${NEXT_PUBLIC_STORAGE_URL}
 
       # Redis
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secure_password}@redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_secure_password}
 
       # Application
-      NEXT_PUBLIC_APP_URL: ${NEXTAUTH_URL}
+      NEXT_PUBLIC_APP_URL: ${NEXTAUTH_URL:-https://www.simplevdr.com}
 
-      # Optional: Sentry
+      # Sentry (Optional)
       NEXT_PUBLIC_SENTRY_DSN: ${SENTRY_DSN:-}
 
       # Security
       CLAMAV_ENABLED: ${CLAMAV_ENABLED:-false}
       VIRUSTOTAL_API_KEY: ${VIRUSTOTAL_API_KEY:-}
+
+      # Email (Optional)
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@simplevdr.com}
     depends_on:
       postgres:
         condition: service_healthy

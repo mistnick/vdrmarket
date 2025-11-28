@@ -240,13 +240,13 @@ export function CreateLinkDialog({
                 {!generatedLink && (
                     <div className="flex gap-2 mb-4">
                         <div
-                            className={`flex-1 h-1.5 rounded-full ${currentStep >= 1 ? "bg-primary" : "bg-slate-200"}`}
+                            className={`flex-1 h-1.5 rounded-full ${currentStep >= 1 ? "bg-primary" : "bg-muted"}`}
                         />
                         <div
-                            className={`flex-1 h-1.5 rounded-full ${currentStep >= 2 ? "bg-primary" : "bg-slate-200"}`}
+                            className={`flex-1 h-1.5 rounded-full ${currentStep >= 2 ? "bg-primary" : "bg-muted"}`}
                         />
                         <div
-                            className={`flex-1 h-1.5 rounded-full ${currentStep >= 3 ? "bg-primary" : "bg-slate-200"}`}
+                            className={`flex-1 h-1.5 rounded-full ${currentStep >= 3 ? "bg-primary" : "bg-muted"}`}
                         />
                     </div>
                 )}
@@ -259,7 +259,7 @@ export function CreateLinkDialog({
                                 <>
                                     {!initialDocumentId && (
                                         <div className="grid gap-2">
-                                            <Label htmlFor="document">Select Document <span className="text-red-500">*</span></Label>
+                                            <Label htmlFor="document">Select Document <span className="text-destructive">*</span></Label>
                                             <select
                                                 id="document"
                                                 className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -320,10 +320,10 @@ export function CreateLinkDialog({
                                                 setFormData({ ...formData, password: e.target.value })
                                             }
                                             disabled={loading}
-                                            className={errors.password ? "border-red-500" : ""}
+                                            className={errors.password ? "border-destructive" : ""}
                                         />
                                         {errors.password && (
-                                            <p className="text-sm text-red-500">{errors.password}</p>
+                                            <p className="text-sm text-destructive">{errors.password}</p>
                                         )}
                                     </div>
 
@@ -364,7 +364,7 @@ export function CreateLinkDialog({
                                         {formData.emailProtected && (
                                             <div className="grid gap-2 pl-4 border-l-2">
                                                 <Label htmlFor="allowedEmails">
-                                                    Allowed Emails <span className="text-red-500">*</span>
+                                                    Allowed Emails <span className="text-destructive">*</span>
                                                 </Label>
                                                 <Textarea
                                                     id="allowedEmails"
@@ -374,14 +374,14 @@ export function CreateLinkDialog({
                                                         setFormData({ ...formData, allowedEmails: e.target.value })
                                                     }
                                                     disabled={loading}
-                                                    className={errors.allowedEmails ? "border-red-500" : ""}
+                                                    className={errors.allowedEmails ? "border-destructive" : ""}
                                                     rows={2}
                                                 />
                                                 <p className="text-xs text-muted-foreground">
                                                     Separate multiple emails with commas
                                                 </p>
                                                 {errors.allowedEmails && (
-                                                    <p className="text-sm text-red-500">{errors.allowedEmails}</p>
+                                                    <p className="text-sm text-destructive">{errors.allowedEmails}</p>
                                                 )}
                                             </div>
                                         )}
@@ -442,9 +442,9 @@ export function CreateLinkDialog({
                                         </div>
                                     </div>
 
-                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-2">
-                                        <h4 className="font-medium text-blue-900 mb-2">Ready to create</h4>
-                                        <p className="text-sm text-blue-700">
+                                    <div className="bg-info/10 border border-info/20 rounded-lg p-4 mt-2">
+                                        <h4 className="font-medium text-info mb-2">Ready to create</h4>
+                                        <p className="text-sm text-info/80">
                                             Your share link will be created with the configured settings.
                                             {formData.password && " Password protection is enabled."}
                                             {formData.expiresAt && ` Link expires on ${new Date(formData.expiresAt).toLocaleDateString()}.`}
@@ -479,9 +479,9 @@ export function CreateLinkDialog({
                     </div>
                 ) : (
                     <div className="space-y-4 py-4">
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                            <h4 className="font-medium text-green-900 mb-2">Link Created Successfully!</h4>
-                            <p className="text-sm text-green-700">
+                        <div className="bg-success/10 border border-success/20 rounded-lg p-4">
+                            <h4 className="font-medium text-success mb-2">Link Created Successfully!</h4>
+                            <p className="text-sm text-success/80">
                                 Your share link is ready. Copy and share it with your recipients.
                             </p>
                         </div>
@@ -510,16 +510,16 @@ export function CreateLinkDialog({
                         </div>
 
                         {formData.password && (
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                <p className="text-sm text-blue-900">
+                            <div className="bg-info/10 border border-info/20 rounded-lg p-3">
+                                <p className="text-sm text-info">
                                     <strong>Password Protection:</strong> Recipients will need to enter the password you set.
                                 </p>
                             </div>
                         )}
 
                         {formData.expiresAt && (
-                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                                <p className="text-sm text-amber-900">
+                            <div className="bg-warning/10 border border-warning/20 rounded-lg p-3">
+                                <p className="text-sm text-warning">
                                     <strong>Expiration:</strong> Link expires on {new Date(formData.expiresAt).toLocaleString()}
                                 </p>
                             </div>

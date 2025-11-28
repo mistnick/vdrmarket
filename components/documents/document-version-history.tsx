@@ -183,7 +183,7 @@ export function DocumentVersionHistory({
               </div>
               <DialogFooter>
                 {uploadingNew && (
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Uploading...
                   </div>
@@ -196,11 +196,11 @@ export function DocumentVersionHistory({
       <CardContent>
         {loading ? (
           <div className="flex justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : versions.length === 0 ? (
-          <div className="text-center py-8 text-slate-500">
-            <FileText className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+          <div className="text-center py-8 text-muted-foreground">
+            <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
             <p>No version history available</p>
           </div>
         ) : (
@@ -209,27 +209,27 @@ export function DocumentVersionHistory({
               <div
                 key={version.id || version.versionNumber}
                 className={`flex items-center justify-between p-4 border rounded-lg ${
-                  version.isCurrent ? "bg-blue-50 border-blue-200" : "bg-white"
+                  version.isCurrent ? "bg-primary/5 border-primary/20" : "bg-card"
                 }`}
               >
                 <div className="flex items-center gap-4 flex-1">
                   <div className="flex-shrink-0">
                     {version.isCurrent ? (
-                      <CheckCircle2 className="h-8 w-8 text-blue-600" />
+                      <CheckCircle2 className="h-8 w-8 text-primary" />
                     ) : (
-                      <Clock className="h-8 w-8 text-slate-400" />
+                      <Clock className="h-8 w-8 text-muted-foreground" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold text-slate-900">
+                      <span className="font-semibold text-foreground">
                         Version {version.versionNumber}
                       </span>
                       {version.isCurrent && (
-                        <Badge className="bg-blue-600">Current</Badge>
+                        <Badge className="bg-primary text-primary-foreground">Current</Badge>
                       )}
                     </div>
-                    <div className="text-sm text-slate-600 space-y-1">
+                    <div className="text-sm text-muted-foreground space-y-1">
                       <div>
                         Created: {format(new Date(version.createdAt), "MMM dd, yyyy HH:mm")}
                       </div>

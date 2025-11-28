@@ -175,6 +175,7 @@ export async function POST(
         documentName: link.document.name,
         allowDownload: link.allowDownload,
         enableFeedback: link.enableFeedback,
+        ipAddress, // Return IP for client-side watermarking
       },
     });
   } catch (error) {

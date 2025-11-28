@@ -104,11 +104,11 @@ export function GlobalSearch() {
     const getIcon = (type: string) => {
         switch (type) {
             case "document":
-                return <FileText className="h-4 w-4 text-blue-500" />;
+                return <FileText className="h-4 w-4 text-info" />;
             case "folder":
-                return <Folder className="h-4 w-4 text-yellow-500" />;
+                return <Folder className="h-4 w-4 text-warning" />;
             case "dataroom":
-                return <Database className="h-4 w-4 text-emerald-500" />;
+                return <Database className="h-4 w-4 text-success" />;
             default:
                 return <Search className="h-4 w-4" />;
         }
@@ -121,7 +121,7 @@ export function GlobalSearch() {
             <span>
                 {parts.map((part, i) =>
                     part.toLowerCase() === query.toLowerCase() ? (
-                        <mark key={i} className="bg-yellow-200 font-medium">
+                        <mark key={i} className="bg-warning/30 font-medium">
                             {part}
                         </mark>
                     ) : (
@@ -136,11 +136,11 @@ export function GlobalSearch() {
         <>
             <div className="relative w-full max-w-2xl" ref={containerRef}>
                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         type="search"
                         placeholder="Search documents, folders, data rooms... (⌘K)"
-                        className="pl-10 pr-24 border-gray-200 focus-visible:ring-emerald-500"
+                        className="pl-10 pr-24 border-border focus-visible:ring-primary"
                         value={query}
                         onChange={(e) => {
                             setQuery(e.target.value);
@@ -151,7 +151,7 @@ export function GlobalSearch() {
                         }}
                     />
                     {loading && (
-                        <Loader2 className="absolute right-20 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />
+                        <Loader2 className="absolute right-20 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
                     )}
                     <Button
                         variant="ghost"
@@ -164,11 +164,11 @@ export function GlobalSearch() {
                 </div>
 
                 {open && (
-                    <div className="absolute top-full mt-2 w-full rounded-md border border-gray-200 bg-white shadow-lg z-50 overflow-hidden">
+                    <div className="absolute top-full mt-2 w-full rounded-md border border-border bg-popover shadow-lg z-50 overflow-hidden">
                         <div className="flex border-b">
-                            <button className="flex-1 py-2 text-sm font-medium text-emerald-600 border-b-2 border-emerald-600">Standard</button>
+                            <button className="flex-1 py-2 text-sm font-medium text-primary border-b-2 border-primary">Standard</button>
                             <button
-                                className="flex-1 py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
+                                className="flex-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
                                 onClick={() => {
                                     setOpen(false);
                                     setAdvancedOpen(true);
@@ -182,20 +182,20 @@ export function GlobalSearch() {
                                 results.map((result) => (
                                     <button
                                         key={`${result.type}-${result.id}`}
-                                        className="flex w-full items-start gap-3 px-4 py-2 hover:bg-gray-50 text-left transition-colors"
+                                        className="flex w-full items-start gap-3 px-4 py-2 hover:bg-accent text-left transition-colors"
                                         onClick={() => handleSelect(result.url)}
                                     >
                                         <div className="mt-1">{getIcon(result.type)}</div>
                                         <div className="flex-1 overflow-hidden">
-                                            <p className="truncate text-sm font-medium text-gray-900">
+                                            <p className="truncate text-sm font-medium text-foreground">
                                                 {highlightText(result.title, query)}
                                             </p>
                                             {result.description && (
-                                                <p className="truncate text-xs text-gray-500">
+                                                <p className="truncate text-xs text-muted-foreground">
                                                     {highlightText(result.description, query)}
                                                 </p>
                                             )}
-                                            <div className="mt-1 flex items-center gap-2 text-[10px] text-gray-400 uppercase tracking-wider">
+                                            <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider">
                                                 <span>{result.type}</span>
                                                 {result.metadata?.updatedAt && (
                                                     <>
@@ -211,7 +211,7 @@ export function GlobalSearch() {
                                 ))
                             ) : (
                                 !loading && query.length >= 2 && (
-                                    <div className="p-4 text-center text-sm text-gray-500">
+                                    <div className="p-4 text-center text-sm text-muted-foreground">
                                         No results found.
                                     </div>
                                 )

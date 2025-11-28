@@ -195,7 +195,7 @@ export function SearchFiltersComponent({
                     <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 text-red-600"
+                        className="h-8 text-destructive"
                         onClick={clearFilters}
                     >
                         Clear all

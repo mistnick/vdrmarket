@@ -50,19 +50,19 @@ const PERMISSION_LEVELS = {
         label: 'Viewer',
         description: 'Can view documents only',
         icon: Eye,
-        color: 'text-blue-600',
+        color: 'text-info',
     },
     editor: {
         label: 'Editor',
         description: 'Can view and upload documents',
         icon: Edit,
-        color: 'text-green-600',
+        color: 'text-success',
     },
     admin: {
         label: 'Admin',
         description: 'Full access including permissions',
         icon: Shield,
-        color: 'text-purple-600',
+        color: 'text-primary',
     },
 };
 

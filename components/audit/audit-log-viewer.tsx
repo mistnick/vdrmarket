@@ -133,13 +133,13 @@ export function AuditLogViewer() {
     };
 
     const getActionColor = (action: string) => {
-        if (action.includes("CREATED")) return "bg-green-100 text-green-800";
-        if (action.includes("DELETED")) return "bg-red-100 text-red-800";
-        if (action.includes("UPDATED")) return "bg-blue-100 text-blue-800";
+        if (action.includes("CREATED")) return "bg-success/10 text-success";
+        if (action.includes("DELETED")) return "bg-destructive/10 text-destructive";
+        if (action.includes("UPDATED")) return "bg-info/10 text-info";
         if (action.includes("VIEWED") || action.includes("ACCESSED"))
-            return "bg-gray-100 text-gray-800";
-        if (action.includes("LOGIN")) return "bg-purple-100 text-purple-800";
-        return "bg-gray-100 text-gray-800";
+            return "bg-muted text-muted-foreground";
+        if (action.includes("LOGIN")) return "bg-primary/10 text-primary";
+        return "bg-muted text-muted-foreground";
     };
 
     const filteredLogs = logs.filter((log) => {

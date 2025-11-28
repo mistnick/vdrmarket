@@ -55,10 +55,10 @@ export function SecureViewer({ url, fileType, allowDownload, fileName }: SecureV
 
     if (fileType !== "application/pdf" && !fileType.startsWith("image/")) {
         return (
-            <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-lg shadow-sm border">
-                <AlertCircle className="h-12 w-12 text-yellow-500 mb-4" />
+            <div className="flex flex-col items-center justify-center p-12 text-center bg-card rounded-lg shadow-sm border">
+                <AlertCircle className="h-12 w-12 text-warning mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Preview Not Available</h3>
-                <p className="text-gray-500 mb-4">
+                <p className="text-muted-foreground mb-4">
                     This file type ({fileType}) cannot be previewed in the secure viewer.
                 </p>
                 {allowDownload ? (
@@ -67,7 +67,7 @@ export function SecureViewer({ url, fileType, allowDownload, fileName }: SecureV
                         Download to View
                     </Button>
                 ) : (
-                    <p className="text-sm text-red-500">
+                    <p className="text-sm text-destructive">
                         Downloading is disabled for this document.
                     </p>
                 )}
@@ -77,7 +77,7 @@ export function SecureViewer({ url, fileType, allowDownload, fileName }: SecureV
 
     if (fileType.startsWith("image/")) {
         return (
-            <div className="flex justify-center bg-gray-100 p-4 rounded-lg overflow-auto max-h-[80vh]">
+            <div className="flex justify-center bg-muted p-4 rounded-lg overflow-auto max-h-[80vh]">
                 <img
                     src={url}
                     alt={fileName}
@@ -144,7 +144,7 @@ export function SecureViewer({ url, fileType, allowDownload, fileName }: SecureV
 
             {/* PDF Viewer */}
             <div
-                className="w-full bg-gray-100 p-4 rounded-b-lg min-h-[500px] flex justify-center overflow-auto max-h-[80vh]"
+                className="w-full bg-muted p-4 rounded-b-lg min-h-[500px] flex justify-center overflow-auto max-h-[80vh]"
                 onContextMenu={(e) => e.preventDefault()}
             >
                 {error ? (

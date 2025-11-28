@@ -166,11 +166,11 @@ export function AdvancedSearchDialog({
     const getIcon = (type: string) => {
         switch (type) {
             case "document":
-                return <FileText className="h-4 w-4 text-blue-500" />;
+                return <FileText className="h-4 w-4 text-info" />;
             case "folder":
-                return <Folder className="h-4 w-4 text-yellow-500" />;
+                return <Folder className="h-4 w-4 text-warning" />;
             case "dataroom":
-                return <Database className="h-4 w-4 text-emerald-500" />;
+                return <Database className="h-4 w-4 text-success" />;
             default:
                 return <Search className="h-4 w-4" />;
         }
@@ -183,7 +183,7 @@ export function AdvancedSearchDialog({
             <span>
                 {parts.map((part, i) =>
                     part.toLowerCase() === query.toLowerCase() ? (
-                        <mark key={i} className="bg-yellow-200 font-medium">
+                        <mark key={i} className="bg-warning/30 font-medium">
                             {part}
                         </mark>
                     ) : (
@@ -207,7 +207,7 @@ export function AdvancedSearchDialog({
                 <div className="px-6 space-y-4">
                     {/* Search Input */}
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             type="search"
                             placeholder="Type to search..."
@@ -217,7 +217,7 @@ export function AdvancedSearchDialog({
                             autoFocus
                         />
                         {loading && (
-                            <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />
+                            <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
                         )}
                     </div>
 
@@ -235,7 +235,7 @@ export function AdvancedSearchDialog({
                         {query.length < 2 && recentSearches.length > 0 && (
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <p className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                                    <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                                         <Clock className="h-4 w-4" />
                                         Recent Searches
                                     </p>
@@ -251,11 +251,11 @@ export function AdvancedSearchDialog({
                                 {recentSearches.map((recent, idx) => (
                                     <button
                                         key={idx}
-                                        className="flex w-full items-center gap-3 px-3 py-2 hover:bg-gray-50 text-left transition-colors rounded-md"
+                                        className="flex w-full items-center gap-3 px-3 py-2 hover:bg-accent text-left transition-colors rounded-md"
                                         onClick={() => handleRecentSearch(recent)}
                                     >
-                                        <Clock className="h-4 w-4 text-gray-400" />
-                                        <span className="text-sm text-gray-700">{recent}</span>
+                                        <Clock className="h-4 w-4 text-muted-foreground" />
+                                        <span className="text-sm text-foreground">{recent}</span>
                                     </button>
                                 ))}
                             </div>
@@ -266,7 +266,7 @@ export function AdvancedSearchDialog({
                             <>
                                 {results.length > 0 && (
                                     <div className="flex items-center justify-between mb-2">
-                                        <p className="text-sm text-gray-600">
+                                        <p className="text-sm text-muted-foreground">
                                             {results.length} results found
                                         </p>
                                         <Button
@@ -285,20 +285,20 @@ export function AdvancedSearchDialog({
                                     results.map((result) => (
                                         <button
                                             key={`${result.type}-${result.id}`}
-                                            className="flex w-full items-start gap-3 px-3 py-3 hover:bg-gray-50 text-left transition-colors rounded-md border"
+                                            className="flex w-full items-start gap-3 px-3 py-3 hover:bg-accent text-left transition-colors rounded-md border"
                                             onClick={() => handleSelect(result)}
                                         >
                                             <div className="mt-1">{getIcon(result.type)}</div>
                                             <div className="flex-1 overflow-hidden">
-                                                <p className="text-sm font-medium text-gray-900">
+                                                <p className="text-sm font-medium text-foreground">
                                                     {highlightText(result.title, query)}
                                                 </p>
                                                 {result.description && (
-                                                    <p className="text-xs text-gray-500 mt-1">
+                                                    <p className="text-xs text-muted-foreground mt-1">
                                                         {result.description}
                                                     </p>
                                                 )}
-                                                <div className="mt-2 flex items-center gap-2 text-[10px] text-gray-400 uppercase tracking-wider">
+                                                <div className="mt-2 flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider">
                                                     <Badge variant="outline" className="text-[10px] h-4">
                                                         {result.type}
                                                     </Badge>
@@ -321,7 +321,7 @@ export function AdvancedSearchDialog({
                                                     {result.rank && (
                                                         <>
                                                             <span>•</span>
-                                                            <span className="text-emerald-600 font-medium">
+                                                            <span className="text-success font-medium">
                                                                 Relevance: {(result.rank * 100).toFixed(0)}%
                                                             </span>
                                                         </>
@@ -332,7 +332,7 @@ export function AdvancedSearchDialog({
                                     ))
                                 ) : (
                                     !loading && (
-                                        <div className="p-8 text-center text-gray-500">
+                                        <div className="p-8 text-center text-muted-foreground">
                                             <Search className="h-12 w-12 mx-auto mb-3 opacity-50" />
                                             <p className="text-sm">No results found.</p>
                                             <p className="text-xs mt-1">
@@ -346,7 +346,7 @@ export function AdvancedSearchDialog({
 
                         {/* Empty State */}
                         {query.length < 2 && recentSearches.length === 0 && (
-                            <div className="p-8 text-center text-gray-500">
+                            <div className="p-8 text-center text-muted-foreground">
                                 <Search className="h-12 w-12 mx-auto mb-3 opacity-50" />
                                 <p className="text-sm">Start typing to search...</p>
                                 <p className="text-xs mt-1">

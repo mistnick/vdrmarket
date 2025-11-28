@@ -190,7 +190,7 @@ export function NotificationCenter() {
                             {notifications.map((notification) => (
                                 <div
                                     key={notification.id}
-                                    className={`p-4 hover:bg-accent transition-colors ${!notification.read ? "bg-blue-50/50" : ""
+                                    className={`p-4 hover:bg-accent transition-colors ${!notification.read ? "bg-primary/5" : ""
                                         }`}
                                 >
                                     <div className="flex items-start gap-3">

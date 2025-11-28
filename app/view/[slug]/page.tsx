@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Shield, FileText, Download, Eye, Clock, Loader2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { SecureViewer } from "@/components/view/secure-viewer";
+import { EnhancedSecureViewer } from "@/components/viewer/enhanced-secure-viewer";
+import { SecurityViolationType } from "@/hooks/use-security-protection";
 
 export default function PublicLinkViewerPage() {
   const params = useParams();
@@ -20,10 +21,44 @@ export default function PublicLinkViewerPage() {
   const [error, setError] = useState<string | null>(null);
   const [verified, setVerified] = useState(false);
   const [documentData, setDocumentData] = useState<any>(null);
+  const [viewerIpAddress, setViewerIpAddress] = useState<string | undefined>(undefined);
 
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+
+  // Fetch viewer's IP address
+  useEffect(() => {
+    fetch("/api/auth/ip")
+      .then((res) => res.json())
+      .then((data) => setViewerIpAddress(data.ip))
+      .catch(() => setViewerIpAddress(undefined));
+  }, []);
+
+  // Handle security violations
+  const handleSecurityViolation = useCallback(
+    (type: SecurityViolationType, count: number) => {
+      // Log security violations to analytics
+      console.warn(`[Security] Violation detected: ${type} (count: ${count})`);
+      
+      // Optionally send to server for logging
+      if (slug && email) {
+        fetch(`/api/public/${slug}/security-event`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type,
+            count,
+            viewerEmail: email,
+            timestamp: new Date().toISOString(),
+          }),
+        }).catch(() => {
+          // Silently fail - security logging is best-effort
+        });
+      }
+    },
+    [slug, email]
+  );
 
   useEffect(() => {
     fetchLinkData();
@@ -129,79 +164,47 @@ export default function PublicLinkViewerPage() {
     const hasScreenshotProtection = link.enableScreenshotProtection;
 
     return (
-      <div
-        className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4"
-        onContextMenu={(e) => hasScreenshotProtection && e.preventDefault()}
-        onDragStart={(e) => hasScreenshotProtection && e.preventDefault()}
-        onCopy={(e) => hasScreenshotProtection && e.preventDefault()}
-        style={{
-          userSelect: hasScreenshotProtection ? 'none' : 'auto',
-          WebkitUserSelect: hasScreenshotProtection ? 'none' : 'auto',
-        }}
-      >
-        {/* Watermark Overlay */}
-        {hasWatermark && (
-          <div
-            className="fixed inset-0 pointer-events-none z-50 overflow-hidden"
-            style={{ mixBlendMode: 'multiply' }}
-          >
-            <div className="relative w-full h-full">
-              {Array.from({ length: 20 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="absolute text-gray-400/20 text-sm font-mono transform -rotate-45 whitespace-nowrap"
-                  style={{
-                    top: `${(i * 80) % 100}%`,
-                    left: `${(i * 120) % 100}%`,
-                    fontSize: '14px',
-                    letterSpacing: '2px',
-                  }}
-                >
-                  {email || 'CONFIDENTIAL'} • {new Date().toLocaleDateString()}
-                </div>
-              ))}
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        {/* Document Header */}
+        <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b shadow-sm">
+          <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-semibold text-gray-900">{documentData.documentName}</h1>
+              <p className="text-sm text-gray-500">
+                Shared via DataRoom
+                {hasWatermark && ' • Watermarked'}
+                {hasScreenshotProtection && ' • Protected'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Shield className="h-4 w-4 text-green-500" />
+              <span>Secure Viewing</span>
             </div>
           </div>
-        )}
+        </div>
 
-        <div className="max-w-4xl mx-auto relative z-10">{/* Document Header */}
-          <Card className="mb-6">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-2xl">{documentData.documentName}</CardTitle>
-                  <CardDescription className="mt-1">
-                    Shared via DataRoom{hasWatermark && ' • Watermarked'}
-                  </CardDescription>
-                </div>
-                {documentData.allowDownload && (
-                  <Button>
-                    <Download className="mr-2 h-4 w-4" />
-                    Download
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-          </Card>
+        {/* Enhanced Secure Viewer */}
+        <div className="h-[calc(100vh-64px)]">
+          <EnhancedSecureViewer
+            documentUrl={documentData.url}
+            documentName={documentData.documentName}
+            fileType={documentData.fileType}
+            userName={name || email || "Viewer"}
+            userEmail={email || "anonymous"}
+            ipAddress={viewerIpAddress || documentData.ipAddress}
+            allowDownload={documentData.allowDownload}
+            allowPrint={false}
+            allowCopy={false}
+            enableWatermark={hasWatermark}
+            enableScreenshotProtection={hasScreenshotProtection}
+            watermarkOpacity={0.12}
+            onSecurityViolation={handleSecurityViolation}
+          />
+        </div>
 
-          {/* Document Viewer */}
-          <Card>
-            <CardContent className="p-0 overflow-hidden">
-              <SecureViewer
-                url={documentData.url}
-                fileType={documentData.fileType}
-                allowDownload={documentData.allowDownload}
-                fileName={documentData.documentName}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Footer */}
-          <div className="text-center mt-6">
-            <p className="text-sm text-gray-500">
-              Powered by <span className="font-semibold">DataRoom</span>
-            </p>
-          </div>
+        {/* Footer */}
+        <div className="fixed bottom-0 left-0 right-0 bg-gray-900/90 text-white text-center py-2 text-xs z-50">
+          Powered by <span className="font-semibold">DataRoom</span> • Secure Document Sharing
         </div>
       </div>
     );

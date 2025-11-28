@@ -118,7 +118,7 @@ export function TwoFactorAuthDialog({
                     <>
                         <DialogHeader>
                             <DialogTitle className="flex items-center gap-2">
-                                <Shield className="h-5 w-5 text-emerald-600" />
+                                <Shield className="h-5 w-5 text-success" />
                                 Enable Two-Factor Authentication
                             </DialogTitle>
                             <DialogDescription>
@@ -155,7 +155,7 @@ export function TwoFactorAuthDialog({
                             <Button
                                 onClick={handleEnable2FA}
                                 disabled={loading}
-                                className="bg-emerald-600 hover:bg-emerald-700"
+                                className="bg-success hover:bg-success/90 text-success-foreground"
                             >
                                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Continue
@@ -229,7 +229,7 @@ export function TwoFactorAuthDialog({
                             <Button
                                 onClick={handleVerify}
                                 disabled={loading || verificationCode.length !== 6}
-                                className="bg-emerald-600 hover:bg-emerald-700"
+                                className="bg-success hover:bg-success/90 text-success-foreground"
                             >
                                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Verify & Enable
@@ -241,7 +241,7 @@ export function TwoFactorAuthDialog({
                 {step === "codes" && (
                     <>
                         <DialogHeader>
-                            <DialogTitle className="text-emerald-600">
+                            <DialogTitle className="text-success">
                                 2FA Enabled Successfully!
                             </DialogTitle>
                             <DialogDescription>
@@ -290,7 +290,7 @@ export function TwoFactorAuthDialog({
                         <DialogFooter>
                             <Button
                                 onClick={handleFinish}
-                                className="w-full bg-emerald-600 hover:bg-emerald-700"
+                                className="w-full bg-success hover:bg-success/90 text-success-foreground"
                             >
                                 I've Saved My Recovery Codes
                             </Button>

@@ -34,9 +34,9 @@ interface PermissionMatrixProps {
 }
 
 const LEVEL_COLORS = {
-    viewer: "bg-blue-100 text-blue-800 hover:bg-blue-100",
-    editor: "bg-green-100 text-green-800 hover:bg-green-100",
-    admin: "bg-purple-100 text-purple-800 hover:bg-purple-100",
+    viewer: "bg-info/10 text-info hover:bg-info/10",
+    editor: "bg-success/10 text-success hover:bg-success/10",
+    admin: "bg-primary/10 text-primary hover:bg-primary/10",
 };
 
 const LEVEL_LABELS = {
@@ -128,7 +128,7 @@ export function PermissionMatrix({
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
                                             onClick={() => handleDelete(permission.id)}
-                                            className="text-red-600"
+                                            className="text-destructive"
                                         >
                                             <Trash2 className="mr-2 h-4 w-4" />
                                             Remove Access

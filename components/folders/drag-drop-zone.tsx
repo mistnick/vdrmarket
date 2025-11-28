@@ -80,17 +80,17 @@ export function DragDropZone({
             onDrop={handleDrop}
             className={cn(
                 "relative transition-colors",
-                isDragging && "bg-blue-50 border-2 border-dashed border-blue-400 rounded-lg",
+                isDragging && "bg-primary/5 border-2 border-dashed border-primary/40 rounded-lg",
                 className
             )}
         >
             {children}
 
             {isDragging && (
-                <div className="absolute inset-0 flex items-center justify-center bg-blue-50/90 rounded-lg pointer-events-none z-10">
+                <div className="absolute inset-0 flex items-center justify-center bg-primary/5 rounded-lg pointer-events-none z-10">
                     <div className="text-center">
-                        <Upload className="h-12 w-12 mx-auto mb-2 text-blue-600" />
-                        <p className="text-sm font-medium text-blue-900">
+                        <Upload className="h-12 w-12 mx-auto mb-2 text-primary" />
+                        <p className="text-sm font-medium text-primary">
                             Drop document here to move
                         </p>
                     </div>
