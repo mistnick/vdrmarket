@@ -222,7 +222,7 @@ export function DocumentViewerDialog({
                             </div>
 
                             {/* Content */}
-                            <div className="flex-1 overflow-hidden relative bg-muted/10">
+                            <div className="flex-1 relative bg-muted/10 min-h-0">
                                 {loading && (
                                     <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
                                         <div className="flex flex-col items-center gap-4">
@@ -244,19 +244,21 @@ export function DocumentViewerDialog({
                                 )}
 
                                 {!loading && !error && documentUrl && (
-                                    <EnhancedSecureViewer
-                                        documentUrl={documentUrl}
-                                        documentName={document.name}
-                                        fileType={document.fileType}
-                                        userName={userName}
-                                        userEmail={userEmail}
-                                        allowDownload={allowDownload}
-                                        allowPrint={false}
-                                        allowCopy={false}
-                                        enableWatermark={true}
-                                        enableScreenshotProtection={false}
-                                        watermarkOpacity={0.08}
-                                    />
+                                    <div className="h-full w-full">
+                                        <EnhancedSecureViewer
+                                            documentUrl={documentUrl}
+                                            documentName={document.name}
+                                            fileType={document.fileType}
+                                            userName={userName}
+                                            userEmail={userEmail}
+                                            allowDownload={allowDownload}
+                                            allowPrint={false}
+                                            allowCopy={false}
+                                            enableWatermark={true}
+                                            enableScreenshotProtection={false}
+                                            watermarkOpacity={0.08}
+                                        />
+                                    </div>
                                 )}
                             </div>
                         </div>

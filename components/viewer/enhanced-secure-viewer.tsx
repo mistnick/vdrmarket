@@ -462,7 +462,8 @@ export function EnhancedSecureViewer({
                 ref={containerRef}
                 className="overflow-auto flex justify-center items-start p-4"
                 style={{
-                    height: "calc(100vh - 120px)",
+                    height: "100%",
+                    maxHeight: "100%",
                     userSelect: allowCopy ? "text" : "none",
                     WebkitUserSelect: allowCopy ? "text" : "none",
                 }}
