@@ -22,17 +22,23 @@ import {
 // Dynamically import react-pdf with SSR disabled to avoid DOMMatrix error
 const Document = dynamic(
     () => import("react-pdf").then((mod) => mod.Document),
-    { ssr: false }
+    { ssr: false, loading: () => <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div> }
 );
 const Page = dynamic(
     () => import("react-pdf").then((mod) => mod.Page),
     { ssr: false }
 );
 
+// Track if PDF.js worker is initialized
+let pdfWorkerInitialized = false;
+
 // Configure PDF.js worker - only on client side
-if (typeof window !== "undefined") {
-    import("react-pdf").then((pdfjs) => {
-        pdfjs.pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.pdfjs.version}/pdf.worker.min.mjs`;
+if (typeof window !== "undefined" && !pdfWorkerInitialized) {
+    import("react-pdf").then((pdfModule) => {
+        pdfModule.pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfModule.pdfjs.version}/pdf.worker.min.mjs`;
+        pdfWorkerInitialized = true;
+    }).catch(err => {
+        console.error("Failed to initialize PDF.js worker:", err);
     });
 }
 
@@ -460,10 +466,9 @@ export function EnhancedSecureViewer({
             {/* PDF Content */}
             <div
                 ref={containerRef}
-                className="overflow-auto flex justify-center items-start p-4"
+                className="overflow-auto flex justify-center items-start p-4 min-h-[400px]"
                 style={{
-                    height: "100%",
-                    maxHeight: "100%",
+                    height: "calc(100% - 90px)",
                     userSelect: allowCopy ? "text" : "none",
                     WebkitUserSelect: allowCopy ? "text" : "none",
                 }}
@@ -479,8 +484,16 @@ export function EnhancedSecureViewer({
                         onLoadSuccess={onDocumentLoadSuccess}
                         onLoadError={onDocumentLoadError}
                         loading={
-                            <div className="flex items-center justify-center h-64">
+                            <div className="flex flex-col items-center justify-center h-64 gap-3">
                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                <p className="text-sm text-muted-foreground">Loading PDF...</p>
+                            </div>
+                        }
+                        error={
+                            <div className="flex flex-col items-center justify-center h-64 gap-3 text-center">
+                                <AlertCircle className="h-8 w-8 text-destructive" />
+                                <p className="text-sm text-destructive">Failed to load PDF</p>
+                                <p className="text-xs text-muted-foreground">The document might be corrupted or in an unsupported format.</p>
                             </div>
                         }
                         className="shadow-lg"
@@ -491,6 +504,11 @@ export function EnhancedSecureViewer({
                             renderTextLayer={false}
                             renderAnnotationLayer={false}
                             className="bg-white"
+                            loading={
+                                <div className="flex items-center justify-center h-64">
+                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                </div>
+                            }
                         />
                     </Document>
                 )}

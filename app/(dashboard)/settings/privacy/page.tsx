@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Image from "next/image";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,8 @@ import {
   Database,
   FileText,
   Loader2,
+  Copy,
+  CheckCircle,
 } from "lucide-react";
 import {
   Dialog,
@@ -32,6 +35,104 @@ export default function PrivacySecurityPage() {
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  
+  // 2FA state
+  const [show2FADialog, setShow2FADialog] = useState(false);
+  const [twoFALoading, setTwoFALoading] = useState(false);
+  const [twoFAVerifying, setTwoFAVerifying] = useState(false);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [secret, setSecret] = useState<string | null>(null);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [twoFAError, setTwoFAError] = useState<string | null>(null);
+  const [twoFASuccess, setTwoFASuccess] = useState(false);
+  const [secretCopied, setSecretCopied] = useState(false);
+
+  // Setup 2FA - fetch QR code
+  const setup2FA = async () => {
+    setTwoFALoading(true);
+    setTwoFAError(null);
+    setQrCode(null);
+    setSecret(null);
+    setVerificationCode("");
+    setTwoFASuccess(false);
+
+    try {
+      const response = await fetch("/api/user/2fa/setup");
+      const data = await response.json();
+
+      if (response.ok) {
+        setQrCode(data.qrCode);
+        setSecret(data.secret);
+      } else {
+        setTwoFAError(data.error || "Failed to setup 2FA");
+      }
+    } catch (error) {
+      console.error("Error setting up 2FA:", error);
+      setTwoFAError("An error occurred while setting up 2FA");
+    } finally {
+      setTwoFALoading(false);
+    }
+  };
+
+  // Verify 2FA code
+  const verify2FA = async () => {
+    if (!verificationCode || verificationCode.length !== 6) {
+      setTwoFAError("Please enter a 6-digit code");
+      return;
+    }
+
+    setTwoFAVerifying(true);
+    setTwoFAError(null);
+
+    try {
+      const response = await fetch("/api/user/2fa/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: verificationCode }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setTwoFASuccess(true);
+        setTimeout(() => {
+          setShow2FADialog(false);
+          setTwoFASuccess(false);
+        }, 2000);
+      } else {
+        setTwoFAError(data.error || "Invalid verification code");
+      }
+    } catch (error) {
+      console.error("Error verifying 2FA:", error);
+      setTwoFAError("An error occurred while verifying");
+    } finally {
+      setTwoFAVerifying(false);
+    }
+  };
+
+  // Copy secret to clipboard
+  const copySecret = () => {
+    if (secret) {
+      navigator.clipboard.writeText(secret);
+      setSecretCopied(true);
+      setTimeout(() => setSecretCopied(false), 2000);
+    }
+  };
+
+  // Handle 2FA dialog open
+  const handle2FADialogOpen = (open: boolean) => {
+    setShow2FADialog(open);
+    if (open) {
+      setup2FA();
+    } else {
+      // Reset state when closing
+      setQrCode(null);
+      setSecret(null);
+      setVerificationCode("");
+      setTwoFAError(null);
+      setTwoFASuccess(false);
+    }
+  };
 
   const handleExportData = async () => {
     try {
@@ -356,32 +457,128 @@ export default function PrivacySecurityPage() {
                       Add an extra layer of security to your account
                     </p>
                   </div>
-                  <Dialog>
+                  <Dialog open={show2FADialog} onOpenChange={handle2FADialogOpen}>
                     <DialogTrigger asChild>
                       <Button variant="outline">Enable 2FA</Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="max-w-md">
                       <DialogHeader>
                         <DialogTitle>Enable Two-Factor Authentication</DialogTitle>
                         <DialogDescription>
-                          Scan the QR code with your authenticator app to enable 2FA.
+                          Scan the QR code with your authenticator app (Google Authenticator, Authy, etc.)
                         </DialogDescription>
                       </DialogHeader>
-                      <div className="flex flex-col items-center justify-center py-6 space-y-4">
-                        <div className="w-48 h-48 bg-slate-100 rounded-lg flex items-center justify-center border-2 border-dashed border-slate-300">
-                          <Shield className="h-16 w-16 text-slate-300" />
-                          {/* Placeholder for QR Code */}
+
+                      {twoFASuccess ? (
+                        <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                          <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+                            <CheckCircle className="h-8 w-8 text-green-600" />
+                          </div>
+                          <h3 className="text-lg font-semibold text-green-600">
+                            2FA Enabled Successfully!
+                          </h3>
+                          <p className="text-sm text-slate-600 text-center">
+                            Your account is now protected with two-factor authentication.
+                          </p>
                         </div>
-                        <div className="w-full max-w-sm space-y-2">
-                          <Label htmlFor="2fa-code">Verification Code</Label>
-                          <Input id="2fa-code" placeholder="Enter 6-digit code" />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-4 space-y-4">
+                          {twoFALoading ? (
+                            <div className="w-48 h-48 bg-slate-100 rounded-lg flex items-center justify-center">
+                              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            </div>
+                          ) : qrCode ? (
+                            <>
+                              <div className="p-4 bg-white rounded-lg border shadow-sm">
+                                <img
+                                  src={qrCode}
+                                  alt="2FA QR Code"
+                                  width={200}
+                                  height={200}
+                                  className="w-48 h-48"
+                                />
+                              </div>
+
+                              {secret && (
+                                <div className="w-full space-y-2">
+                                  <Label className="text-xs text-slate-500">
+                                    Or enter this code manually:
+                                  </Label>
+                                  <div className="flex items-center gap-2">
+                                    <code className="flex-1 px-3 py-2 bg-slate-100 rounded text-sm font-mono break-all">
+                                      {secret}
+                                    </code>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={copySecret}
+                                    >
+                                      {secretCopied ? (
+                                        <CheckCircle className="h-4 w-4 text-green-500" />
+                                      ) : (
+                                        <Copy className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="w-full space-y-2">
+                                <Label htmlFor="2fa-code">Verification Code</Label>
+                                <Input
+                                  id="2fa-code"
+                                  placeholder="Enter 6-digit code"
+                                  value={verificationCode}
+                                  onChange={(e) => {
+                                    const value = e.target.value.replace(/\D/g, "").slice(0, 6);
+                                    setVerificationCode(value);
+                                    setTwoFAError(null);
+                                  }}
+                                  maxLength={6}
+                                  className="text-center text-lg tracking-widest font-mono"
+                                />
+                              </div>
+
+                              {twoFAError && (
+                                <Alert variant="destructive" className="w-full">
+                                  <AlertTriangle className="h-4 w-4" />
+                                  <AlertDescription>{twoFAError}</AlertDescription>
+                                </Alert>
+                              )}
+                            </>
+                          ) : twoFAError ? (
+                            <div className="text-center space-y-4">
+                              <Alert variant="destructive">
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertDescription>{twoFAError}</AlertDescription>
+                              </Alert>
+                              <Button onClick={setup2FA} variant="outline">
+                                Try Again
+                              </Button>
+                            </div>
+                          ) : null}
                         </div>
-                      </div>
-                      <DialogFooter>
-                        <Button onClick={() => alert("2FA Enabled (Mock)")}>
-                          Verify & Enable
-                        </Button>
-                      </DialogFooter>
+                      )}
+
+                      {!twoFASuccess && qrCode && (
+                        <DialogFooter>
+                          <Button
+                            variant="outline"
+                            onClick={() => setShow2FADialog(false)}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={verify2FA}
+                            disabled={twoFAVerifying || verificationCode.length !== 6}
+                          >
+                            {twoFAVerifying && (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
+                            Verify & Enable
+                          </Button>
+                        </DialogFooter>
+                      )}
                     </DialogContent>
                   </Dialog>
                 </div>

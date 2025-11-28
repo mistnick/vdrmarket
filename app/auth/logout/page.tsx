@@ -80,8 +80,8 @@ export default function LogoutPage() {
             <>
               <CardHeader className="text-center">
                 <div className="flex justify-center mb-4">
-                  <div className="rounded-full bg-blue-100 p-3">
-                    <CheckCircle className="h-8 w-8 text-blue-600" />
+                  <div className="rounded-full bg-green-100 p-3">
+                    <CheckCircle className="h-8 w-8 text-green-600" />
                   </div>
                 </div>
                 <CardTitle>Disconnessione completata</CardTitle>

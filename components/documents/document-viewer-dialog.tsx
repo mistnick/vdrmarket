@@ -222,7 +222,7 @@ export function DocumentViewerDialog({
                             </div>
 
                             {/* Content */}
-                            <div className="flex-1 relative bg-muted/10 min-h-0">
+                            <div className="flex-1 relative bg-muted/10 overflow-hidden" style={{ minHeight: "500px" }}>
                                 {loading && (
                                     <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
                                         <div className="flex flex-col items-center gap-4">
@@ -244,7 +244,7 @@ export function DocumentViewerDialog({
                                 )}
 
                                 {!loading && !error && documentUrl && (
-                                    <div className="h-full w-full">
+                                    <div className="h-full w-full" style={{ minHeight: "500px" }}>
                                         <EnhancedSecureViewer
                                             documentUrl={documentUrl}
                                             documentName={document.name}
