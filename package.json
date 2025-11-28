@@ -92,6 +92,7 @@
     "react-hot-toast": "^2.6.0",
     "react-is": "^18.2.0",
     "react-pdf": "^10.2.0",
+    "react-rnd": "^10.5.2",
     "recharts": "^3.5.0",
     "resend": "^4.0.2",
     "socket.io": "^4.8.1",

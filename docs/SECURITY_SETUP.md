@@ -257,3 +257,36 @@ For questions or issues, review the implementation files:
 - `/lib/security/file-validation.ts` - File validation
 - `/lib/security/malware-scanner.ts` - Malware scanning
 - `/lib/security/link-access.ts` - Link access validation
+
+## Audit Log System
+
+The system now includes an immutable audit log that records critical actions.
+
+### Features
+- **Immutability**: Each log entry is SHA-256 hashed, including the hash of the previous entry, creating a tamper-evident chain.
+- **Sensitive Data Masking**: Passwords, tokens, and other sensitive data are automatically masked in the log metadata.
+- **Monitoring**: The system monitors for suspicious activities (e.g., multiple failed logins, massive downloads) and logs alerts.
+
+### Logged Actions
+- **Authentication**: Login, Logout
+- **Documents**: Upload (Created), Download, View
+- **Sharing**: Link Creation
+- **Permissions**: Permission Granted
+- **Security**: Password Change, 2FA Enable/Disable
+
+### querying Logs
+You can query audit logs directly via Prisma:
+
+```typescript
+const logs = await prisma.auditLog.findMany({
+  where: { userId: 'user-id' },
+  orderBy: { createdAt: 'desc' }
+});
+```
+
+### Verification
+To verify the integrity of the log chain:
+1. Fetch logs ordered by creation time.
+2. For each log, recalculate the hash using its content and the `previousHash`.
+3. Compare the calculated hash with the stored `hash`.
+

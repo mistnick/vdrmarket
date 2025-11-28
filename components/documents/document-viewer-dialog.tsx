@@ -1,16 +1,17 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
     Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
+    DialogPortal,
+    DialogOverlay,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { EnhancedSecureViewer } from "@/components/viewer/enhanced-secure-viewer";
-import { Download, X, ExternalLink, Loader2, FileText, Shield } from "lucide-react";
+import { Download, X, ExternalLink, Loader2, FileText, Shield, Maximize2, Minimize2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Rnd } from "react-rnd";
 
 interface DocumentViewerDialogProps {
     open: boolean;
@@ -38,6 +39,7 @@ export function DocumentViewerDialog({
     const [documentUrl, setDocumentUrl] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isMaximized, setIsMaximized] = useState(false);
 
     // Fetch document URL when dialog opens
     const fetchDocumentUrl = useCallback(async () => {
@@ -68,6 +70,7 @@ export function DocumentViewerDialog({
         } else {
             setDocumentUrl(null);
             setError(null);
+            setIsMaximized(false);
         }
         onOpenChange(newOpen);
     };
@@ -129,93 +132,137 @@ export function DocumentViewerDialog({
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent className="max-w-6xl h-[90vh] p-0 overflow-hidden">
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b bg-background">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="p-2 rounded-lg bg-primary/10">
-                            <FileText className="h-5 w-5 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <h2 className="text-lg font-semibold truncate">{document.name}</h2>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Badge variant="secondary" className={getFileTypeBadge(document.fileType)}>
-                                    {getShortFileType(document.fileType, document.name)}
-                                </Badge>
-                                {document.size && (
-                                    <span>{formatFileSize(document.size)}</span>
+            <DialogPortal>
+                <DialogOverlay className="bg-black/20 backdrop-blur-sm" />
+                <DialogPrimitive.Content
+                    className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+                    onInteractOutside={(e) => e.preventDefault()}
+                >
+                    <Rnd
+                        default={{
+                            x: 0,
+                            y: 0,
+                            width: 1024,
+                            height: 768,
+                        }}
+                        minWidth={600}
+                        minHeight={400}
+                        bounds="window"
+                        dragHandleClassName="dialog-drag-handle"
+                        className="pointer-events-auto"
+                        disableDragging={isMaximized}
+                        size={isMaximized ? { width: "100%", height: "100%" } : undefined}
+                        position={isMaximized ? { x: 0, y: 0 } : undefined}
+                        onDragStop={(e, d) => {
+                            if (isMaximized) return;
+                        }}
+                        onResizeStop={(e, direction, ref, delta, position) => {
+                            if (isMaximized) return;
+                        }}
+                    >
+                        <div className="flex flex-col w-full h-full bg-background border rounded-lg shadow-2xl overflow-hidden">
+                            {/* Header - Draggable Area */}
+                            <div className="dialog-drag-handle flex items-center justify-between px-4 py-3 border-b bg-muted/30 cursor-move select-none">
+                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                    <div className="p-1.5 rounded-md bg-primary/10 shrink-0">
+                                        <FileText className="h-4 w-4 text-primary" />
+                                    </div>
+                                    <div className="flex-1 min-w-0 flex items-center gap-3">
+                                        <h2 className="text-sm font-semibold truncate max-w-[200px] sm:max-w-md">
+                                            {document.name}
+                                        </h2>
+                                        <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
+                                            <Badge variant="secondary" className={`h-5 px-1.5 ${getFileTypeBadge(document.fileType)}`}>
+                                                {getShortFileType(document.fileType, document.name)}
+                                            </Badge>
+                                            {document.size && (
+                                                <span>{formatFileSize(document.size)}</span>
+                                            )}
+                                            <span className="flex items-center gap-1 ml-2 text-success">
+                                                <Shield className="h-3 w-3" />
+                                                Secure View
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-1 ml-4">
+                                    {allowDownload && (
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleDownload} title="Download">
+                                            <Download className="h-4 w-4" />
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() => window.open(`/api/documents/${document.id}/view?redirect=true`, "_blank")}
+                                        title="Open in New Tab"
+                                    >
+                                        <ExternalLink className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() => setIsMaximized(!isMaximized)}
+                                        title={isMaximized ? "Restore" : "Maximize"}
+                                    >
+                                        {isMaximized ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 hover:bg-destructive hover:text-destructive-foreground"
+                                        onClick={() => onOpenChange(false)}
+                                        title="Close"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-1 overflow-hidden relative bg-muted/10">
+                                {loading && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
+                                        <div className="flex flex-col items-center gap-4">
+                                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                            <p className="text-muted-foreground text-sm">Loading document...</p>
+                                        </div>
+                                    </div>
                                 )}
-                                <span className="flex items-center gap-1">
-                                    <Shield className="h-3 w-3 text-success" />
-                                    Secure View
-                                </span>
+
+                                {error && (
+                                    <div className="flex items-center justify-center h-full">
+                                        <div className="text-center p-8">
+                                            <FileText className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
+                                            <h3 className="text-base font-semibold mb-2">Failed to load document</h3>
+                                            <p className="text-sm text-muted-foreground mb-4 max-w-xs mx-auto">{error}</p>
+                                            <Button size="sm" onClick={fetchDocumentUrl}>Retry</Button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {!loading && !error && documentUrl && (
+                                    <EnhancedSecureViewer
+                                        documentUrl={documentUrl}
+                                        documentName={document.name}
+                                        fileType={document.fileType}
+                                        userName={userName}
+                                        userEmail={userEmail}
+                                        allowDownload={allowDownload}
+                                        allowPrint={false}
+                                        allowCopy={false}
+                                        enableWatermark={true}
+                                        enableScreenshotProtection={false}
+                                        watermarkOpacity={0.08}
+                                    />
+                                )}
                             </div>
                         </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {allowDownload && (
-                            <Button variant="outline" size="sm" onClick={handleDownload}>
-                                <Download className="h-4 w-4 mr-2" />
-                                Download
-                            </Button>
-                        )}
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.open(`/api/documents/${document.id}/view?redirect=true`, "_blank")}
-                        >
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            Open in New Tab
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => onOpenChange(false)}
-                        >
-                            <X className="h-4 w-4" />
-                        </Button>
-                    </div>
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 h-[calc(90vh-80px)] overflow-hidden">
-                    {loading && (
-                        <div className="flex items-center justify-center h-full">
-                            <div className="flex flex-col items-center gap-4">
-                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                <p className="text-muted-foreground">Loading document...</p>
-                            </div>
-                        </div>
-                    )}
-
-                    {error && (
-                        <div className="flex items-center justify-center h-full">
-                            <div className="text-center p-8">
-                                <FileText className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
-                                <h3 className="text-lg font-semibold mb-2">Failed to load document</h3>
-                                <p className="text-muted-foreground mb-4">{error}</p>
-                                <Button onClick={fetchDocumentUrl}>Retry</Button>
-                            </div>
-                        </div>
-                    )}
-
-                    {!loading && !error && documentUrl && (
-                        <EnhancedSecureViewer
-                            documentUrl={documentUrl}
-                            documentName={document.name}
-                            fileType={document.fileType}
-                            userName={userName}
-                            userEmail={userEmail}
-                            allowDownload={allowDownload}
-                            allowPrint={false}
-                            allowCopy={false}
-                            enableWatermark={true}
-                            enableScreenshotProtection={false}
-                            watermarkOpacity={0.08}
-                        />
-                    )}
-                </div>
-            </DialogContent>
+                    </Rnd>
+                </DialogPrimitive.Content>
+            </DialogPortal>
         </Dialog>
     );
 }
