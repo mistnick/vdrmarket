@@ -117,7 +117,7 @@ export function AppHeader({ user }: AppHeaderProps) {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
-                <Link href="/api/auth/logout" className="w-full text-destructive">
+                <Link href="/auth/logout" className="w-full text-destructive">
                   {t("common.signOut")}
                 </Link>
               </DropdownMenuItem>

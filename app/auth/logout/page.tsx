@@ -23,6 +23,10 @@ export default function LogoutPage() {
 
         if (response.ok) {
           setState("success");
+          // Redirect automatico alla home dopo 1.5 secondi
+          setTimeout(() => {
+            router.push("/");
+          }, 1500);
         } else {
           const data = await response.json();
           setErrorMessage(data.error || "Errore durante il logout");
@@ -36,7 +40,7 @@ export default function LogoutPage() {
     };
 
     performLogout();
-  }, []);
+  }, [router]);
 
   const handleLogin = () => {
     router.push("/auth/login");
@@ -82,7 +86,7 @@ export default function LogoutPage() {
                 </div>
                 <CardTitle>Disconnessione completata</CardTitle>
                 <CardDescription>
-                  Sei uscito dalla sessione con successo
+                  Sei uscito dalla sessione con successo. Reindirizzamento in corso...
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 py-6">

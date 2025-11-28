@@ -96,7 +96,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
-                            <Link href="/api/auth/logout" className="flex items-center text-destructive">
+                            <Link href="/auth/logout" className="flex items-center text-destructive">
                                 <LogOut className="mr-2 h-4 w-4" />
                                 Esci
                             </Link>
