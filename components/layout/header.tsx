@@ -54,7 +54,7 @@ export function Header({ user }: HeaderProps) {
                         <span className="text-lg font-bold text-white">D</span>
                     </div>
                     <span className="hidden font-semibold sm:inline-block text-foreground">
-                        DataRoom
+                        SimpleVDR
                     </span>
                 </Link>
 

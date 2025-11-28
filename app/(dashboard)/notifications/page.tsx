@@ -133,7 +133,7 @@ export default function NotificationsPage() {
       case "document_viewed":
         return "text-blue-600 bg-blue-50";
       case "document_shared":
-        return "text-green-600 bg-green-50";
+        return "text-blue-600 bg-blue-50";
       case "team_invitation":
         return "text-purple-600 bg-purple-50";
       case "document_uploaded":
@@ -222,7 +222,7 @@ export default function NotificationsPage() {
                   {notifications.length - unreadCount}
                 </p>
               </div>
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
+              <CheckCircle2 className="h-8 w-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { hash } from "bcryptjs";
+import { AuditService } from "@/lib/audit/audit-service";
 
 // POST /api/auth/reset-password - Reset password with token
 export async function POST(request: Request) {
@@ -52,16 +53,14 @@ export async function POST(request: Request) {
     });
 
     // Log audit event
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: "password_reset",
-        resourceType: "user",
-        resourceId: user.id,
-        metadata: {
-          email: user.email,
-          timestamp: new Date().toISOString(),
-        },
+    await AuditService.log({
+      userId: user.id,
+      action: "password_change",
+      resourceType: "user",
+      resourceId: user.id,
+      metadata: {
+        email: user.email,
+        method: "reset_token",
       },
     });
 

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getStorageProvider } from "@/lib/storage";
 import { validateFile, generateSecureStorageKey } from "@/lib/security/file-validation";
 import { scanFile } from "@/lib/security/malware-scanner";
+import { AuditService } from "@/lib/audit/audit-service";
 
 // GET /api/documents - Get all documents for authenticated user
 export async function GET(request: Request) {
@@ -217,18 +218,16 @@ export async function POST(request: Request) {
     });
 
     // Log audit event
-    await prisma.auditLog.create({
-      data: {
-        teamId,
-        userId: user.id,
-        action: "created",
-        resourceType: "document",
-        resourceId: document.id,
-        metadata: {
-          documentName: document.name,
-          fileSize: file.size,
-          fileType: file.type,
-        },
+    await AuditService.log({
+      teamId,
+      userId: user.id,
+      action: "created",
+      resourceType: "document",
+      resourceId: document.id,
+      metadata: {
+        documentName: document.name,
+        fileSize: file.size,
+        fileType: file.type,
       },
     });
 

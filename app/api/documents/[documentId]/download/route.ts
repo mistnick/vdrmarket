@@ -8,6 +8,7 @@ import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { getStorageProvider } from "@/lib/storage";
 import { nanoid } from "nanoid";
+import { AuditService } from "@/lib/audit/audit-service";
 
 export async function GET(
   request: NextRequest,
@@ -66,29 +67,26 @@ export async function GET(
     const fileBuffer = await storage.download(document.file);
 
     // Create audit log
-    await prisma.auditLog.create({
-      data: {
-        id: nanoid(),
-        userId: session.userId,
-        teamId: document.teamId,
-        action: "DOCUMENT_DOWNLOAD",
-        resourceType: "document",
-        resourceId: documentId,
-        metadata: {
-          fileName: document.name,
-          fileSize: document.fileSize,
-        },
+    await AuditService.log({
+      userId: session.userId,
+      teamId: document.teamId,
+      action: "downloaded",
+      resourceType: "document",
+      resourceId: documentId,
+      metadata: {
+        fileName: document.name,
+        fileSize: document.fileSize,
       },
     });
 
     // Determine content type
     const contentType = document.fileType || "application/octet-stream";
-    
+
     // Get file extension from name or fileType
     const getExtension = (name: string, mimeType: string): string => {
       const nameParts = name.split(".");
       if (nameParts.length > 1) return nameParts[nameParts.length - 1];
-      
+
       // Fallback to mime type
       const mimeExtensions: Record<string, string> = {
         "application/pdf": "pdf",
@@ -103,7 +101,7 @@ export async function GET(
         "image/jpeg": "jpg",
         "image/gif": "gif",
       };
-      
+
       return mimeExtensions[mimeType] || "bin";
     };
 

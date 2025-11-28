@@ -7,6 +7,8 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/db/prisma";
 import { User } from "@prisma/client";
 import { randomBytes } from "crypto";
+import { AuditService } from "@/lib/audit/audit-service";
+import { auth } from "@/lib/auth";
 
 const SESSION_COOKIE_NAME = "dataroom-session";
 const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -32,6 +34,18 @@ export async function createSession(user: User): Promise<string> {
     },
   });
 
+  // Log login event
+  await AuditService.log({
+    action: "login",
+    resourceType: "user",
+    resourceId: user.id,
+    userId: user.id,
+    metadata: {
+      success: true,
+      method: "password",
+    },
+  });
+
   // Set cookie
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE_NAME, session.sessionToken, {
@@ -44,11 +58,6 @@ export async function createSession(user: User): Promise<string> {
 
   return session.sessionToken;
 }
-
-/**
- * Get current session data
- */
-import { auth } from "@/lib/auth";
 
 // List of auth cookies to clear on JWT errors
 // Includes all possible NextAuth cookie name variations
@@ -221,6 +230,24 @@ export async function deleteSession(): Promise<void> {
   const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
   if (sessionToken) {
+    // Fetch session first to get user ID for logging
+    const session = await prisma.session.findUnique({
+      where: { sessionToken },
+      select: { userId: true }
+    });
+
+    if (session) {
+      await AuditService.log({
+        action: "logout",
+        resourceType: "user",
+        resourceId: session.userId,
+        userId: session.userId,
+        metadata: {
+          success: true
+        }
+      });
+    }
+
     await prisma.session.delete({
       where: { sessionToken },
     }).catch(() => {
@@ -288,8 +315,6 @@ export function generateSessionToken(): string {
   // Generate 32 random bytes (256 bits) and return as hex string.
   return randomBytes(32).toString("hex");
 }
-
-
 
 /**
  * Cleanup expired sessions (should be run periodically)

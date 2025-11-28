@@ -23,7 +23,7 @@ export default async function Home() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                 <FileText className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold">DataRoom</span>
+              <span className="text-xl font-bold">SimpleVDR</span>
             </div>
             <div className="flex items-center gap-3">
               <Link href="/auth/login">
@@ -53,8 +53,11 @@ export default async function Home() {
             <div className="sm:text-center md:max-w-2xl md:mx-auto lg:col-span-6 lg:text-left">
               <h1 className="text-4xl font-bold text-foreground tracking-tight sm:text-5xl md:text-6xl">
                 Secure Document Sharing
-                <span className="block text-success">Made Simple</span>
+                <span className="block text-primary">Made Simple</span>
               </h1>
+              <p className="mt-2 text-xl font-medium text-primary/80">
+                Secure by design. Simple by choice.
+              </p>
               <p className="mt-3 text-base text-muted-foreground sm:mt-5 sm:text-xl lg:text-lg xl:text-xl">
                 Share confidential documents securely with advanced tracking, granular permissions,
                 and audit trails. Perfect for M&A, fundraising, and due diligence.
@@ -63,7 +66,7 @@ export default async function Home() {
                 <Link href="/auth/signup">
                   <Button
                     size="lg"
-                    className="text-lg rounded-full bg-success hover:bg-success/90 text-success-foreground"
+                    className="text-lg rounded-full bg-primary hover:bg-primary/90 text-primary-foreground"
                   >
                     Start Free Trial
                     <ArrowRight className="ml-2 h-5 w-5" />
@@ -92,7 +95,7 @@ export default async function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="lg:grid lg:grid-cols-3 lg:gap-8">
             <div>
-              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-success text-success-foreground">
+              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-primary text-primary-foreground">
                 <Shield className="h-6 w-6" />
               </div>
               <div className="mt-5">
@@ -107,7 +110,7 @@ export default async function Home() {
             </div>
 
             <div className="mt-10 lg:mt-0">
-              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-success text-success-foreground">
+              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-primary text-primary-foreground">
                 <BarChart3 className="h-6 w-6" />
               </div>
               <div className="mt-5">
@@ -122,7 +125,7 @@ export default async function Home() {
             </div>
 
             <div className="mt-10 lg:mt-0">
-              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-success text-success-foreground">
+              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-primary text-primary-foreground">
                 <Users className="h-6 w-6" />
               </div>
               <div className="mt-5">
@@ -144,7 +147,7 @@ export default async function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="lg:grid lg:grid-cols-3 lg:gap-8">
             <div>
-              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-success text-success-foreground">
+              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-primary text-primary-foreground">
                 <FileText className="h-6 w-6" />
               </div>
               <div className="mt-5">
@@ -159,7 +162,7 @@ export default async function Home() {
             </div>
 
             <div className="mt-10 lg:mt-0">
-              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-success text-success-foreground">
+              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-primary text-primary-foreground">
                 <Database className="h-6 w-6" />
               </div>
               <div className="mt-5">
@@ -174,7 +177,7 @@ export default async function Home() {
             </div>
 
             <div className="mt-10 lg:mt-0">
-              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-success text-success-foreground">
+              <div className="flex items-center justify-center h-12 w-12 rounded-md bg-primary text-primary-foreground">
                 <Shield className="h-6 w-6" />
               </div>
               <div className="mt-5">
@@ -200,7 +203,7 @@ export default async function Home() {
                 Ready to secure your documents?
               </h2>
               <p className="mt-3 max-w-3xl text-lg text-muted-foreground">
-                Join thousands of companies using DataRoom for secure document sharing
+                Join thousands of companies using SimpleVDR for secure document sharing
                 and comprehensive tracking. Start your free trial today.
               </p>
             </div>
@@ -208,7 +211,7 @@ export default async function Home() {
               <Link href="/auth/signup">
                 <Button
                   size="lg"
-                  className="text-lg rounded-full bg-success hover:bg-success/90 text-success-foreground"
+                  className="text-lg rounded-full bg-primary hover:bg-primary/90 text-primary-foreground"
                 >
                   Start Free Trial
                   <ArrowRight className="ml-3 h-6 w-6" />
@@ -234,10 +237,10 @@ export default async function Home() {
           <div className="grid gap-8 md:grid-cols-4 mb-8">
             <div className="md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-success">
-                  <FileText className="h-5 w-5 text-success-foreground" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+                  <FileText className="h-5 w-5 text-primary-foreground" />
                 </div>
-                <span className="text-lg font-bold">DataRoom</span>
+                <span className="text-lg font-bold">SimpleVDR</span>
               </div>
               <p className="text-sm text-muted-foreground">
                 Secure document sharing for modern teams.
@@ -273,7 +276,7 @@ export default async function Home() {
 
           <div className="border-t pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} DataRoom. All rights reserved.
+              © {new Date().getFullYear()} SimpleVDR. All rights reserved.
             </p>
             <div className="flex gap-6 text-sm text-muted-foreground">
               <Link href="#" className="hover:text-foreground transition-colors">Twitter</Link>

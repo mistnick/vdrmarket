@@ -41,7 +41,7 @@ export function SidebarNav() {
                         <Building2 className="h-4 w-4" />
                     </div>
                     {!isCollapsed && (
-                        <span className="font-semibold text-lg">DataRoom</span>
+                        <span className="font-semibold text-lg">SimpleVDR</span>
                     )}
                 </Link>
                 <Button

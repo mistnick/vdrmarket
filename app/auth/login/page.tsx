@@ -55,10 +55,10 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-600 mb-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 mb-4">
             <FileText className="h-7 w-7 text-white" />
           </div>
-          <h1 className="text-2xl font-semibold text-gray-900">DataRoom</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">SimpleVDR</h1>
           <p className="text-sm text-gray-500 mt-1">Secure Document Management</p>
         </div>
 
@@ -92,7 +92,7 @@ export default function LoginPage() {
                     placeholder="you@company.com"
                     required
                     disabled={loading}
-                    className="pl-10 border-gray-200 focus-visible:ring-emerald-500"
+                    className="pl-10 border-gray-200 focus-visible:ring-blue-500"
                   />
                 </div>
               </div>
@@ -104,7 +104,7 @@ export default function LoginPage() {
                   </Label>
                   <Link
                     href="/auth/forgot-password"
-                    className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                   >
                     Forgot password?
                   </Link>
@@ -118,7 +118,7 @@ export default function LoginPage() {
                     placeholder="••••••••"
                     required
                     disabled={loading}
-                    className="pl-10 border-gray-200 focus-visible:ring-emerald-500"
+                    className="pl-10 border-gray-200 focus-visible:ring-blue-500"
                   />
                 </div>
               </div>
@@ -126,7 +126,7 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium"
               >
                 {loading ? (
                   <>
@@ -144,7 +144,7 @@ export default function LoginPage() {
                 Don't have an account?{" "}
                 <Link
                   href="/auth/signup"
-                  className="text-emerald-600 hover:text-emerald-700 font-medium"
+                  className="text-blue-600 hover:text-blue-700 font-medium"
                 >
                   Sign up
                 </Link>
@@ -155,7 +155,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="text-center text-xs text-gray-500 mt-8">
-          © 2025 DataRoom. All rights reserved.
+          © 2025 SimpleVDR. All rights reserved.
         </p>
       </div>
     </div>

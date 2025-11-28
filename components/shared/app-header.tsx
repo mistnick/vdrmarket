@@ -44,7 +44,7 @@ export function AppHeader({ user }: AppHeaderProps) {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-success">
             <span className="text-sm font-bold text-success-foreground">DR</span>
           </div>
-          <span className="text-lg font-semibold text-foreground">DataRoom</span>
+          <span className="text-lg font-semibold text-foreground">SimpleVDR</span>
         </Link>
 
         {/* Search */}

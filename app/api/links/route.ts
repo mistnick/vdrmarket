@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { generateSecureToken } from "@/lib/security/token";
 import bcrypt from "bcryptjs";
 import { sendDocumentSharedEmail } from "@/lib/email/service";
+import { AuditService } from "@/lib/audit/audit-service";
 
 // GET /api/links - Get all links for a document
 export async function GET(request: Request) {
@@ -225,20 +226,18 @@ export async function POST(request: Request) {
     });
 
     // Log audit event
-    await prisma.auditLog.create({
-      data: {
-        teamId: document.teamId,
-        userId: user.id,
-        action: "shared",
-        resourceType: "link",
-        resourceId: link.id,
-        metadata: {
-          linkSlug: slug,
-          documentId,
-          documentName: document.name,
-          hasPassword: !!password,
-          expiresAt,
-        },
+    await AuditService.log({
+      teamId: document.teamId,
+      userId: user.id,
+      action: "shared",
+      resourceType: "link",
+      resourceId: link.id,
+      metadata: {
+        linkSlug: slug,
+        documentId,
+        documentName: document.name,
+        hasPassword: !!password,
+        expiresAt,
       },
     });
 

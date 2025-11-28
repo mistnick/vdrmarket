@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
+import { AuditService } from "@/lib/audit/audit-service";
 
 // GET /api/datarooms/[id]/permissions - List permissions
 export async function GET(
@@ -129,18 +130,16 @@ export async function POST(
         });
 
         // Log audit
-        await prisma.auditLog.create({
-            data: {
-                teamId: dataRoom.teamId,
-                userId: user!.id,
-                action: "created",
-                resourceType: "permission",
-                resourceId: permission.id,
-                metadata: {
-                    email,
-                    level,
-                    dataRoomId: id,
-                },
+        await AuditService.log({
+            teamId: dataRoom.teamId,
+            userId: user!.id,
+            action: "created", // or "permission_granted" if we want to be specific, but "created" on "permission" resource is fine
+            resourceType: "permission", // Note: AuditResourceType might need 'permission' added if not present
+            resourceId: permission.id,
+            metadata: {
+                email,
+                level,
+                dataRoomId: id,
             },
         });
 

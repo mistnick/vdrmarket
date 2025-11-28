@@ -94,7 +94,7 @@ export async function sendTeamInvitationEmail({
 }) {
   return emailService.sendEmail({
     to,
-    subject: `Invitation to join ${teamName} on DataRoom`,
+    subject: `Invitation to join ${teamName} on SimpleVDR`,
     html: EmailTemplates.invitation(inviterName, teamName, link),
   });
 }
@@ -110,7 +110,7 @@ export async function sendWelcomeEmail({
 }) {
   return emailService.sendEmail({
     to,
-    subject: "Welcome to DataRoom",
+    subject: "Welcome to SimpleVDR",
     html: EmailTemplates.welcome(name, link),
   });
 }
@@ -149,7 +149,7 @@ export async function sendPasswordResetEmail({
 }) {
   return emailService.sendEmail({
     to,
-    subject: "Reset your DataRoom password",
+    subject: "Reset your SimpleVDR password",
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Reset Password</h2>
@@ -219,7 +219,7 @@ export async function sendQAActivityEmail({
   answerPreview?: string | null;
   link: string;
 }) {
-  const subject = actionType === "question" 
+  const subject = actionType === "question"
     ? `New question: ${questionTitle}`
     : `New answer to: ${questionTitle}`;
 

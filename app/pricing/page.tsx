@@ -4,7 +4,7 @@ import { Check } from "lucide-react"
 import { FileText } from "lucide-react"
 
 export const metadata = {
-    title: "Pricing | DataRoom",
+    title: "Pricing | SimpleVDR",
     description: "Simple, transparent pricing for secure document sharing",
 }
 
@@ -19,7 +19,7 @@ export default function PricingPage() {
                             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600">
                                 <FileText className="h-5 w-5 text-white" />
                             </div>
-                            <span className="text-xl font-bold">DataRoom</span>
+                            <span className="text-xl font-bold">SimpleVDR</span>
                         </Link>
                         <div className="flex items-center gap-4">
                             <Link href="/auth/login">
@@ -135,7 +135,7 @@ export default function PricingPage() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                         <p className="text-sm text-gray-500">
-                            © {new Date().getFullYear()} DataRoom. All rights reserved.
+                            © {new Date().getFullYear()} SimpleVDR. All rights reserved.
                         </p>
                         <div className="flex gap-6 text-sm text-gray-500">
                             <Link href="/privacy" className="hover:text-gray-900 transition-colors">Privacy</Link>
@@ -167,8 +167,8 @@ function PricingCard({
     return (
         <div
             className={`rounded-xl border p-8 ${highlighted
-                    ? "border-emerald-600 shadow-lg ring-2 ring-emerald-600 relative"
-                    : "border-gray-200"
+                ? "border-emerald-600 shadow-lg ring-2 ring-emerald-600 relative"
+                : "border-gray-200"
                 }`}
         >
             {highlighted && (
@@ -198,8 +198,8 @@ function PricingCard({
             <Link href="/auth/signup">
                 <Button
                     className={`w-full mb-6 ${highlighted
-                            ? "bg-emerald-600 hover:bg-emerald-700"
-                            : "bg-gray-900 hover:bg-gray-800"
+                        ? "bg-emerald-600 hover:bg-emerald-700"
+                        : "bg-gray-900 hover:bg-gray-800"
                         }`}
                 >
                     {price === null ? "Contact Sales" : "Start Free Trial"}

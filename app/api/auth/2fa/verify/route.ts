@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { authenticator } from "otplib";
+import { AuditService } from "@/lib/audit/audit-service";
 
 export async function POST(request: NextRequest) {
     try {
@@ -46,6 +47,18 @@ export async function POST(request: NextRequest) {
             where: { id: user.id },
             data: {
                 twoFactorEnabled: true,
+            },
+        });
+
+        // Log audit event
+        await AuditService.log({
+            userId: user.id,
+            action: "security_settings",
+            resourceType: "user",
+            resourceId: user.id,
+            metadata: {
+                change: "2fa_enabled",
+                method: "totp",
             },
         });
 

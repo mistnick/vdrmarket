@@ -51,10 +51,10 @@ export default function SignupPage() {
             <div className="w-full max-w-md">
                 {/* Logo */}
                 <div className="flex flex-col items-center mb-8">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-600 mb-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 mb-4">
                         <FileText className="h-7 w-7 text-white" />
                     </div>
-                    <h1 className="text-2xl font-semibold text-gray-900">DataRoom</h1>
+                    <h1 className="text-2xl font-semibold text-gray-900">SimpleVDR</h1>
                     <p className="text-sm text-gray-500 mt-1">Create your account</p>
                 </div>
 
@@ -88,7 +88,7 @@ export default function SignupPage() {
                                         placeholder="John Doe"
                                         required
                                         disabled={isLoading}
-                                        className="pl-10 border-gray-200 focus-visible:ring-emerald-500"
+                                        className="pl-10 border-gray-200 focus-visible:ring-blue-500"
                                     />
                                 </div>
                             </div>
@@ -106,7 +106,7 @@ export default function SignupPage() {
                                         placeholder="you@company.com"
                                         required
                                         disabled={isLoading}
-                                        className="pl-10 border-gray-200 focus-visible:ring-emerald-500"
+                                        className="pl-10 border-gray-200 focus-visible:ring-blue-500"
                                     />
                                 </div>
                             </div>
@@ -125,7 +125,7 @@ export default function SignupPage() {
                                         minLength={8}
                                         required
                                         disabled={isLoading}
-                                        className="pl-10 border-gray-200 focus-visible:ring-emerald-500"
+                                        className="pl-10 border-gray-200 focus-visible:ring-blue-500"
                                     />
                                 </div>
                                 <p className="text-xs text-gray-500">
@@ -136,7 +136,7 @@ export default function SignupPage() {
                             <Button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+                                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium"
                             >
                                 {isLoading ? (
                                     <>
@@ -174,7 +174,7 @@ export default function SignupPage() {
                                 Already have an account?{" "}
                                 <Link
                                     href="/auth/login"
-                                    className="text-emerald-600 hover:text-emerald-700 font-medium"
+                                    className="text-blue-600 hover:text-blue-700 font-medium"
                                 >
                                     Sign in
                                 </Link>
@@ -186,11 +186,11 @@ export default function SignupPage() {
                 {/* Footer */}
                 <p className="text-center text-xs text-gray-500 mt-8">
                     By creating an account, you agree to our{" "}
-                    <Link href="/terms" className="text-emerald-600 hover:text-emerald-700">
+                    <Link href="/terms" className="text-blue-600 hover:text-blue-700">
                         Terms of Service
                     </Link>
                     {" "}and{" "}
-                    <Link href="/privacy" className="text-emerald-600 hover:text-emerald-700">
+                    <Link href="/privacy" className="text-blue-600 hover:text-blue-700">
                         Privacy Policy
                     </Link>
                 </p>

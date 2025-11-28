@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { getStorageProvider } from "@/lib/storage";
+import { AuditService } from "@/lib/audit/audit-service";
 
 interface RouteParams {
     params: Promise<{ documentId: string }>;
@@ -58,6 +59,19 @@ export async function GET(
                 { status: 404 }
             );
         }
+
+        // Log audit event
+        await AuditService.log({
+            userId: session.userId,
+            teamId: document.teamId,
+            action: "viewed",
+            resourceType: "document",
+            resourceId: document.id,
+            metadata: {
+                documentName: document.name,
+                fileType: document.fileType,
+            },
+        });
 
         // Check if redirect is requested
         const { searchParams } = new URL(request.url);

@@ -427,12 +427,17 @@ model AuditLog {
   id           String   @id @default(cuid())
   teamId       String?
   userId       String?
-  action       String // created, updated, deleted, viewed, shared, downloaded
-  resourceType String // document, folder, link, dataroom, team
-  resourceId   String
-  metadata     Json?
+  action       String // created, updated, deleted, viewed, shared, downloaded, login, logout, password_change, security_settings
+  resourceType String // document, folder, link, dataroom, team, user, system
+  resourceId   String?
+  metadata     Json?    // Stores masked sensitive data, changes, etc.
   ipAddress    String?
   userAgent    String?
+  
+  // Immutability fields
+  hash         String?  // SHA-256 hash of the log entry
+  previousHash String?  // Hash of the previous log entry for chaining
+  
   createdAt    DateTime @default(now())
 
   team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
@@ -442,6 +447,7 @@ model AuditLog {
   @@index([userId])
   @@index([resourceType, resourceId])
   @@index([createdAt])
+  @@index([action])
   @@map("audit_logs")
 }
 
