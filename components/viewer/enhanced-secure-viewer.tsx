@@ -206,7 +206,7 @@ export function EnhancedSecureViewer({
         if (!allowDownload) return;
 
         try {
-            const response = await fetch(documentUrl);
+            const response = await fetch(documentUrl, { credentials: "include" });
             const blob = await response.blob();
             const downloadUrl = window.URL.createObjectURL(blob);
             const link = document.createElement("a");

@@ -63,7 +63,9 @@ function AuditLogsContent() {
         ...(searchTerm && { search: searchTerm }),
       });
 
-      const response = await fetch(`/api/audit-logs?${params}`);
+      const response = await fetch(`/api/audit-logs?${params}`, {
+        credentials: "include"
+      });
       if (response.ok) {
         const data = await response.json();
         setLogs(data.logs);
@@ -78,7 +80,9 @@ function AuditLogsContent() {
 
   const handleExport = async () => {
     try {
-      const response = await fetch("/api/audit-logs/export");
+      const response = await fetch("/api/audit-logs/export", {
+        credentials: "include"
+      });
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);

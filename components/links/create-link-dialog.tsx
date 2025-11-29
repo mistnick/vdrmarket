@@ -48,7 +48,9 @@ export function CreateLinkDialog({
 
         try {
             setFetchingDocs(true);
-            const response = await fetch("/api/documents");
+            const response = await fetch("/api/documents", {
+                credentials: "include"
+            });
             const data = await response.json();
             if (data.success) {
                 setDocuments(data.data);
@@ -147,6 +149,7 @@ export function CreateLinkDialog({
                 headers: {
                     "Content-Type": "application/json",
                 },
+                credentials: "include",
                 body: JSON.stringify({
                     documentId: initialDocumentId || selectedDocumentId,
                     name: formData.name.trim() || `Share link for ${initialDocumentName || documents.find(d => d.id === selectedDocumentId)?.name || "Document"}`,

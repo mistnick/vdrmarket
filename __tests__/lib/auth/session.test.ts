@@ -37,6 +37,7 @@ describe('Session Management', () => {
     twoFactorEnabled: false,
     twoFactorSecret: null,
     isActive: true,
+    isSuperAdmin: false,
     status: 'ACTIVE',
     accessType: 'UNLIMITED',
     accessStartAt: null,

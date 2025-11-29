@@ -87,9 +87,22 @@ export function SidebarNav() {
 
     // Filtra le voci di navigazione in base ai permessi
     const filteredNavigation = useMemo(() => {
-        // Durante il caricamento o se non ci sono permessi (no dataroom),
+        // Durante il caricamento, mostra solo le voci base
+        if (isLoading) {
+            return navigation.filter(
+                (item) => !item.requiresPermission || 
+                    ["Dashboard", "File Explorer", "Data Rooms"].includes(item.title)
+            );
+        }
+
+        // Se l'utente è amministratore (incluso TENANT_ADMIN), mostra tutto
+        if (permissions.isAdministrator) {
+            return navigation;
+        }
+
+        // Se non ci sono permessi (no dataroom e non admin),
         // mostra solo le voci base
-        if (isLoading || !permissions.groupType) {
+        if (!permissions.groupType) {
             return navigation.filter(
                 (item) => !item.requiresPermission || 
                     ["Dashboard", "File Explorer", "Data Rooms"].includes(item.title)

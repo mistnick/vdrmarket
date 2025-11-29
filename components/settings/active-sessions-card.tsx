@@ -42,7 +42,9 @@ export function ActiveSessionsCard() {
 
     const fetchSessions = async () => {
         try {
-            const response = await fetch("/api/auth/sessions");
+            const response = await fetch("/api/auth/sessions", {
+                credentials: "include"
+            });
             const data = await response.json();
 
             if (!response.ok) {
@@ -68,6 +70,7 @@ export function ActiveSessionsCard() {
         try {
             const response = await fetch(`/api/auth/sessions/${sessionId}`, {
                 method: "DELETE",
+                credentials: "include",
             });
 
             const data = await response.json();

@@ -57,7 +57,9 @@ export default function PrivacySecurityPage() {
     setTwoFASuccess(false);
 
     try {
-      const response = await fetch("/api/user/2fa/setup");
+      const response = await fetch("/api/user/2fa/setup", {
+        credentials: "include"
+      });
       const data = await response.json();
 
       if (response.ok) {
@@ -88,6 +90,7 @@ export default function PrivacySecurityPage() {
       const response = await fetch("/api/user/2fa/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ code: verificationCode }),
       });
 
@@ -137,7 +140,9 @@ export default function PrivacySecurityPage() {
   const handleExportData = async () => {
     try {
       setExportLoading(true);
-      const response = await fetch("/api/user/export-data");
+      const response = await fetch("/api/user/export-data", {
+        credentials: "include"
+      });
 
       if (response.ok) {
         const blob = await response.blob();
@@ -176,6 +181,7 @@ export default function PrivacySecurityPage() {
       const response = await fetch("/api/user/delete-account", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           confirmation: deleteConfirmation,
           password: deletePassword,

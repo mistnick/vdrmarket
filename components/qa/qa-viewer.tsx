@@ -108,7 +108,8 @@ export function QAViewer({ dataRoomId }: QAViewerProps) {
             if (priorityFilter !== "all") params.set("priority", priorityFilter);
 
             const response = await fetch(
-                `/api/datarooms/${dataRoomId}/questions?${params}`
+                `/api/datarooms/${dataRoomId}/questions?${params}`,
+                { credentials: "include" }
             );
             const data = await response.json();
 
@@ -133,6 +134,7 @@ export function QAViewer({ dataRoomId }: QAViewerProps) {
             const response = await fetch(`/api/datarooms/${dataRoomId}/questions`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify(newQuestion),
             });
 
@@ -164,6 +166,7 @@ export function QAViewer({ dataRoomId }: QAViewerProps) {
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
+                    credentials: "include",
                     body: JSON.stringify({ answerText }),
                 }
             );
@@ -187,7 +190,8 @@ export function QAViewer({ dataRoomId }: QAViewerProps) {
     const handleExport = async (format: "excel" | "pdf") => {
         try {
             const response = await fetch(
-                `/api/datarooms/${dataRoomId}/questions/export?format=${format}`
+                `/api/datarooms/${dataRoomId}/questions/export?format=${format}`,
+                { credentials: "include" }
             );
 
             if (!response.ok) {

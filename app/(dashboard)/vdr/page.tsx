@@ -17,7 +17,9 @@ export default function VDRRootPage() {
         async function redirectToFirstDataRoom() {
             try {
                 // Fetch user's data rooms
-                const response = await fetch("/api/datarooms");
+                const response = await fetch("/api/datarooms", {
+                    credentials: "include"
+                });
                 if (!response.ok) {
                     console.error("Failed to fetch data rooms");
                     setLoading(false);

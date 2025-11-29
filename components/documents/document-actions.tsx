@@ -39,7 +39,9 @@ export function DocumentActions({ documentId, documentName, file }: DocumentActi
 
     const handleDownload = async () => {
         try {
-            const response = await fetch(`/api/documents/${documentId}/download`);
+            const response = await fetch(`/api/documents/${documentId}/download`, {
+                credentials: "include",
+            });
             if (response.ok) {
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
@@ -64,6 +66,7 @@ export function DocumentActions({ documentId, documentName, file }: DocumentActi
         try {
             const response = await fetch(`/api/documents/${documentId}`, {
                 method: "DELETE",
+                credentials: "include",
             });
 
             if (!response.ok) {

@@ -50,7 +50,9 @@ export function DataRoomPermissions({ dataRoomId }: DataRoomPermissionsProps) {
 
     const fetchPermissions = async () => {
         try {
-            const response = await fetch(`/api/datarooms/${dataRoomId}/permissions`);
+            const response = await fetch(`/api/datarooms/${dataRoomId}/permissions`, {
+                credentials: "include"
+            });
             const data = await response.json();
 
             if (data.success) {
@@ -71,6 +73,7 @@ export function DataRoomPermissions({ dataRoomId }: DataRoomPermissionsProps) {
             const response = await fetch(`/api/datarooms/${dataRoomId}/permissions`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({
                     email: newEmail,
                     level: newLevel,

@@ -12,6 +12,54 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
     console.log('🌱 Starting database seeding...');
 
+    // ============================================
+    // SUPER ADMIN ACCOUNT (Always created first)
+    // ============================================
+    console.log('\n👑 Creating/Updating Super Admin account...\n');
+
+    const superAdminEmail = 'info@simplevdr.com';
+    const superAdminPassword = 'S1mpl3VDR!!';
+    const hashedSuperAdminPassword = await bcrypt.hash(superAdminPassword, 10);
+
+    const existingSuperAdmin = await prisma.user.findUnique({
+        where: { email: superAdminEmail },
+    });
+
+    if (existingSuperAdmin) {
+        console.log(`🔄 Super Admin already exists: ${superAdminEmail}. Updating...`);
+        await prisma.user.update({
+            where: { email: superAdminEmail },
+            data: {
+                password: hashedSuperAdminPassword,
+                isSuperAdmin: true,
+                isActive: true,
+                emailVerified: new Date(),
+            },
+        });
+        console.log(`✅ Super Admin updated: ${superAdminEmail}`);
+    } else {
+        const superAdmin = await prisma.user.create({
+            data: {
+                email: superAdminEmail,
+                name: 'SimpleVDR Admin',
+                password: hashedSuperAdminPassword,
+                isSuperAdmin: true,
+                isActive: true,
+                emailVerified: new Date(),
+            },
+        });
+        console.log(`✅ Super Admin created: ${superAdmin.email}`);
+        console.log(`   Name: ${superAdmin.name}`);
+        console.log(`   Access: /admin portal`);
+    }
+
+    console.log(`   Email:    ${superAdminEmail}`);
+    console.log(`   Password: ${superAdminPassword}`);
+    console.log(`   Portal:   /admin\n`);
+
+    // ============================================
+    // TEST USERS (Development/Testing)
+    // ============================================
     // Test users data
     const testUsers = [
         {
@@ -113,6 +161,14 @@ async function main() {
         }
 
         console.log('🎉 Database seeding completed successfully!\n');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('📋 SUPER ADMIN CREDENTIALS');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+        console.log('👑 SimpleVDR Admin');
+        console.log(`   Email:    ${superAdminEmail}`);
+        console.log(`   Password: ${superAdminPassword}`);
+        console.log('   Access:   /admin (Super Admin Portal)\n');
+
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('📋 TEST USER CREDENTIALS');
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');

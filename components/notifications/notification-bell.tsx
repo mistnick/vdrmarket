@@ -74,6 +74,7 @@ export function NotificationBell() {
             const response = await fetch(`/api/notifications/${id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({ read: true }),
             });
 
@@ -90,6 +91,7 @@ export function NotificationBell() {
         try {
             const response = await fetch("/api/notifications/read-all", {
                 method: "POST",
+                credentials: "include",
             });
 
             if (response.ok) {

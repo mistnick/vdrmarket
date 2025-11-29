@@ -6,6 +6,10 @@ import { validateFile, generateSecureStorageKey } from "@/lib/security/file-vali
 import { scanFile } from "@/lib/security/malware-scanner";
 import { AuditService } from "@/lib/audit/audit-service";
 
+// Route segment config for large file uploads
+export const maxDuration = 60; // 60 seconds timeout
+export const dynamic = "force-dynamic";
+
 // GET /api/documents - Get all documents for authenticated user
 export async function GET(request: Request) {
   try {
@@ -58,7 +62,24 @@ export async function GET(request: Request) {
 
     const documents = await prisma.document.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        file: true,
+        fileType: true,
+        fileSize: true,
+        versions: true,
+        dataRoomId: true,
+        ownerId: true,
+        folderId: true,
+        index: true,
+        scanStatus: true,
+        scanResult: true,
+        deletedAt: true,
+        deletedById: true,
+        createdAt: true,
+        updatedAt: true,
         owner: true,
         dataRoom: true,
         folder: true,
@@ -105,12 +126,24 @@ export async function POST(request: Request) {
     const folderId = formData.get("folderId") as string | null;
     const name = formData.get("name") as string;
     const description = formData.get("description") as string | null;
+    const index = formData.get("index") as string | null;
 
     if (!file || !dataRoomId) {
       return NextResponse.json(
         { success: false, error: "File and dataRoomId are required" },
         { status: 400 }
       );
+    }
+
+    // Validate index format if provided
+    if (index) {
+      const indexPattern = /^\d+(\.\d+)*$/;
+      if (!indexPattern.test(index)) {
+        return NextResponse.json(
+          { success: false, error: "Invalid index format. Use numbers separated by dots (e.g., 1.2.3)" },
+          { status: 400 }
+        );
+      }
     }
 
     // Get user
@@ -212,6 +245,7 @@ export async function POST(request: Request) {
         dataRoomId,
         ownerId: user.id,
         folderId: folderId || null,
+        index: index || null,
         scanStatus: scanResult.status,
         scanResult: scanResult as any,
       },

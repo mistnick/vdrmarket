@@ -38,7 +38,7 @@ export function SecureViewer({ url, fileType, allowDownload, fileName }: SecureV
         if (!allowDownload) return;
 
         try {
-            const response = await fetch(url);
+            const response = await fetch(url, { credentials: "include" });
             const blob = await response.blob();
             const downloadUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');

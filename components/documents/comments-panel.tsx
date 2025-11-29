@@ -53,7 +53,9 @@ export function CommentsPanel({ documentId }: CommentsPanelProps) {
         setError("");
 
         try {
-            const response = await fetch(`/api/documents/${documentId}/comments`);
+            const response = await fetch(`/api/documents/${documentId}/comments`, {
+                credentials: "include"
+            });
             const data = await response.json();
 
             if (!response.ok) {
@@ -78,6 +80,7 @@ export function CommentsPanel({ documentId }: CommentsPanelProps) {
             const response = await fetch(`/api/documents/${documentId}/comments`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({
                     content: newComment,
                     parentId: replyingTo,

@@ -48,7 +48,18 @@ export async function GET(
                 dataRoomId: id,
                 ...(parentId ? { parentId } : { parentId: null }),
             },
-            include: {
+            select: {
+                id: true,
+                name: true,
+                dataRoomId: true,
+                ownerId: true,
+                parentId: true,
+                path: true,
+                index: true,
+                deletedAt: true,
+                deletedById: true,
+                createdAt: true,
+                updatedAt: true,
                 owner: {
                     select: {
                         id: true,
@@ -98,13 +109,24 @@ export async function POST(
         }
 
         const body = await request.json();
-        const { name, parentId } = body;
+        const { name, parentId, index } = body;
 
         if (!name) {
             return NextResponse.json(
                 { success: false, error: "Name is required" },
                 { status: 400 }
             );
+        }
+
+        // Validate index format if provided
+        if (index) {
+            const indexPattern = /^\d+(\.\d+)*$/;
+            if (!indexPattern.test(index)) {
+                return NextResponse.json(
+                    { success: false, error: "Invalid index format. Use numbers separated by dots (e.g., 1.2.3)" },
+                    { status: 400 }
+                );
+            }
         }
 
         const user = await prisma.user.findUnique({
@@ -147,6 +169,7 @@ export async function POST(
                 parentId: parentId || null,
                 dataRoomId: id,
                 path,
+                index: index || null,
             },
             include: {
                 _count: {

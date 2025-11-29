@@ -48,7 +48,9 @@ export default function NotificationsPage() {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/notifications");
+      const response = await fetch("/api/notifications", {
+        credentials: "include"
+      });
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.data) {
@@ -70,6 +72,7 @@ export default function NotificationsPage() {
       const response = await fetch(`/api/notifications/${notificationId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ read: true }),
       });
 
@@ -87,6 +90,7 @@ export default function NotificationsPage() {
     try {
       const response = await fetch("/api/notifications/mark-all-read", {
         method: "POST",
+        credentials: "include",
       });
 
       if (response.ok) {
@@ -101,6 +105,7 @@ export default function NotificationsPage() {
     try {
       const response = await fetch(`/api/notifications/${notificationId}`, {
         method: "DELETE",
+        credentials: "include",
       });
 
       if (response.ok) {

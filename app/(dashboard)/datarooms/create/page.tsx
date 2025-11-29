@@ -29,6 +29,7 @@ export default function CreateDataRoomPage() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           name,
           description,

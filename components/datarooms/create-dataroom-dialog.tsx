@@ -107,6 +107,7 @@ export function CreateDataRoomDialog({
                 headers: {
                     "Content-Type": "application/json",
                 },
+                credentials: "include",
                 body: JSON.stringify({
                     name: formData.name.trim(),
                     description: formData.description.trim() || undefined,

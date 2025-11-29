@@ -76,6 +76,7 @@ export function NotificationCenter() {
         try {
             const response = await fetch(`/api/notifications/${id}/read`, {
                 method: "PATCH",
+                credentials: "include",
             });
 
             if (response.ok) {
@@ -93,6 +94,7 @@ export function NotificationCenter() {
         try {
             const response = await fetch("/api/notifications/mark-all-read", {
                 method: "POST",
+                credentials: "include",
             });
 
             if (response.ok) {
@@ -108,6 +110,7 @@ export function NotificationCenter() {
         try {
             const response = await fetch(`/api/notifications/${id}/read`, {
                 method: "DELETE",
+                credentials: "include",
             });
 
             if (response.ok) {

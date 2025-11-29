@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/db/prisma";
 import { createSession } from "@/lib/auth/session";
 import bcrypt from "bcryptjs";
@@ -68,6 +69,11 @@ export async function POST(request: NextRequest) {
     // Create session
     await createSession(user);
     console.log("[LOGIN API] Session created successfully");
+
+    // Clear any existing tenant cookie - user will auto-select their first tenant
+    const cookieStore = await cookies();
+    cookieStore.delete("current-tenant");
+    console.log("[LOGIN API] Cleared tenant cookie for fresh session");
 
     // Log successful login
     await prisma.auditLog.create({

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { GroupType } from "@prisma/client";
@@ -10,6 +11,28 @@ function generateSlug(name: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "")
     + "-" + Math.random().toString(36).substring(2, 8);
+}
+
+// Helper to get current tenant ID from cookie
+async function getCurrentTenantId(): Promise<string | null> {
+  const cookieStore = await cookies();
+  return cookieStore.get("current-tenant")?.value || null;
+}
+
+// Helper to validate user has access to tenant
+async function validateTenantAccess(userId: string, tenantId: string): Promise<{ valid: boolean; tenantUser?: { role: string } }> {
+  const tenantUser = await prisma.tenantUser.findUnique({
+    where: {
+      tenantId_userId: { tenantId, userId }
+    },
+    select: { role: true, status: true }
+  });
+  
+  if (!tenantUser || tenantUser.status !== "ACTIVE") {
+    return { valid: false };
+  }
+  
+  return { valid: true, tenantUser: { role: tenantUser.role } };
 }
 
 // GET /api/datarooms - Get all data rooms for authenticated user
@@ -34,19 +57,38 @@ export async function GET() {
       );
     }
 
-    // Find all data rooms where user is a member of any group
-    const dataRooms = await prisma.dataRoom.findMany({
-      where: {
-        groups: {
-          some: {
-            members: {
-              some: {
-                userId: user.id,
-              },
+    // Get current tenant ID
+    const tenantId = await getCurrentTenantId();
+    
+    // Build where clause based on tenant context
+    const whereClause: Record<string, unknown> = {
+      groups: {
+        some: {
+          members: {
+            some: {
+              userId: user.id,
             },
           },
         },
       },
+    };
+
+    // If tenant is selected, filter by tenant
+    if (tenantId) {
+      // Validate user has access to this tenant
+      const access = await validateTenantAccess(user.id, tenantId);
+      if (!access.valid) {
+        return NextResponse.json(
+          { success: false, error: "Access denied to this tenant" },
+          { status: 403 }
+        );
+      }
+      whereClause.tenantId = tenantId;
+    }
+
+    // Find all data rooms where user is a member of any group
+    const dataRooms = await prisma.dataRoom.findMany({
+      where: whereClause,
       include: {
         groups: {
           include: {
@@ -125,6 +167,52 @@ export async function POST(request: Request) {
       );
     }
 
+    // Get current tenant ID
+    const tenantId = await getCurrentTenantId();
+    
+    if (!tenantId) {
+      return NextResponse.json(
+        { success: false, error: "No tenant selected. Please select a tenant first." },
+        { status: 400 }
+      );
+    }
+
+    // Validate user has access to this tenant
+    const access = await validateTenantAccess(user.id, tenantId);
+    if (!access.valid) {
+      return NextResponse.json(
+        { success: false, error: "Access denied to this tenant" },
+        { status: 403 }
+      );
+    }
+
+    // Check tenant plan limits
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { plan: true }
+    });
+
+    if (!tenant || tenant.status !== "ACTIVE") {
+      return NextResponse.json(
+        { success: false, error: "Tenant not found or inactive" },
+        { status: 404 }
+      );
+    }
+
+    // Check VDR limit
+    if (tenant.plan && tenant.plan.maxVdr !== -1) {
+      const currentVdrCount = await prisma.dataRoom.count({
+        where: { tenantId }
+      });
+      
+      if (currentVdrCount >= tenant.plan.maxVdr) {
+        return NextResponse.json(
+          { success: false, error: `VDR limit reached. Your plan allows maximum ${tenant.plan.maxVdr} data rooms.` },
+          { status: 403 }
+        );
+      }
+    }
+
     // Generate or validate slug
     const slug = customSlug || generateSlug(name);
     
@@ -140,13 +228,24 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create data room with default Administrator group
+    // Get all TENANT_ADMIN users for this tenant
+    const tenantAdmins = await prisma.tenantUser.findMany({
+      where: {
+        tenantId,
+        role: "TENANT_ADMIN",
+        status: "ACTIVE",
+      },
+      select: { userId: true },
+    });
+
+    // Create data room with default Administrator group including ALL tenant admins
     const dataRoom = await prisma.dataRoom.create({
       data: {
         name,
         slug,
         description,
         isPublic,
+        tenantId,
         groups: {
           create: {
             name: "Administrators",
@@ -158,10 +257,10 @@ export async function POST(request: Request) {
             canManageUsers: true,
             canViewGroupActivity: true,
             members: {
-              create: {
-                userId: user.id,
-                role: "owner",
-              },
+              create: tenantAdmins.map((admin, index) => ({
+                userId: admin.userId,
+                role: admin.userId === user.id ? "owner" : "admin",
+              })),
             },
           },
         },

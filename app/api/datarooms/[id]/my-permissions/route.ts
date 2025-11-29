@@ -45,12 +45,26 @@ export async function GET(
             },
         });
 
+        // Determine highest role (owner > admin > member > viewer)
+        const roleHierarchy = { owner: 4, admin: 3, member: 2, viewer: 1 };
+        let highestRole = "viewer";
+        for (const m of memberships) {
+            const memberRole = m.role || "member";
+            if ((roleHierarchy[memberRole as keyof typeof roleHierarchy] || 0) > 
+                (roleHierarchy[highestRole as keyof typeof roleHierarchy] || 0)) {
+                highestRole = memberRole;
+            }
+        }
+
         // Transform to response format
         const response = {
+            role: highestRole,
+            canEditIndex: highestRole === "owner" || highestRole === "admin",
             memberships: memberships.map((m) => ({
                 groupId: m.group.id,
                 groupType: m.group.type,
                 groupName: m.group.name,
+                role: m.role,
                 canViewDueDiligenceChecklist: m.group.canViewDueDiligenceChecklist,
                 canManageDocumentPermissions: m.group.canManageDocumentPermissions,
                 canViewGroupUsers: m.group.canViewGroupUsers,

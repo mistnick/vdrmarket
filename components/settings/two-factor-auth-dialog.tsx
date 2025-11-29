@@ -43,6 +43,7 @@ export function TwoFactorAuthDialog({
         try {
             const response = await fetch("/api/auth/2fa/enable", {
                 method: "POST",
+                credentials: "include",
             });
 
             const data = await response.json();
@@ -75,6 +76,7 @@ export function TwoFactorAuthDialog({
             const response = await fetch("/api/auth/2fa/verify", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({ code: verificationCode }),
             });
 

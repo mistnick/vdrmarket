@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useSidebar } from "@/components/layouts/app-shell";
+import { TenantSwitcher } from "@/components/shared/tenant-switcher";
+import { StorageGauge } from "@/components/shared/storage-gauge";
 
 interface DashboardHeaderProps {
     user?: {
@@ -35,16 +37,24 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
 
     return (
         <div className="flex h-14 items-center justify-between px-4 lg:px-6">
-            {/* Left: Mobile menu button */}
-            <Button
-                variant="ghost"
-                size="icon"
-                className="lg:hidden"
-                onClick={toggleMobile}
-            >
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Apri menu</span>
-            </Button>
+            {/* Left: Mobile menu button + Tenant Switcher */}
+            <div className="flex items-center gap-4">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="lg:hidden"
+                    onClick={toggleMobile}
+                >
+                    <Menu className="h-5 w-5" />
+                    <span className="sr-only">Apri menu</span>
+                </Button>
+                
+                {/* Tenant Switcher */}
+                <TenantSwitcher />
+                
+                {/* Storage Gauge */}
+                <StorageGauge size={36} />
+            </div>
 
             {/* Center spacer */}
             <div className="flex-1" />

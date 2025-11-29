@@ -66,6 +66,7 @@ export function PermissionDialog({
             const response = await fetch(url, {
                 method,
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({
                     email: email.trim(),
                     level,

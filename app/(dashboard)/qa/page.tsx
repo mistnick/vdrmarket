@@ -17,7 +17,9 @@ function QAContent() {
     useEffect(() => {
         async function fetchDefaultDataRoom() {
             try {
-                const response = await fetch("/api/datarooms");
+                const response = await fetch("/api/datarooms", {
+                    credentials: "include"
+                });
                 if (!response.ok) {
                     setLoading(false);
                     return;

@@ -59,7 +59,9 @@ export function DocumentVersionHistory({
   const fetchVersions = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/documents/${documentId}/versions`);
+      const response = await fetch(`/api/documents/${documentId}/versions`, {
+        credentials: "include"
+      });
       if (response.ok) {
         const data = await response.json();
         setVersions([data.currentVersion, ...data.history]);
@@ -79,6 +81,7 @@ export function DocumentVersionHistory({
 
       const response = await fetch(`/api/documents/${documentId}/versions`, {
         method: "POST",
+        credentials: "include",
         body: formData,
       });
 

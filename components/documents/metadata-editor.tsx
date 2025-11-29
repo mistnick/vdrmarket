@@ -52,7 +52,9 @@ export function MetadataEditor({ documentId }: MetadataEditorProps) {
         setError("");
 
         try {
-            const response = await fetch(`/api/documents/${documentId}/metadata`);
+            const response = await fetch(`/api/documents/${documentId}/metadata`, {
+                credentials: "include"
+            });
             const data = await response.json();
 
             if (!response.ok) {
@@ -75,6 +77,7 @@ export function MetadataEditor({ documentId }: MetadataEditorProps) {
             const response = await fetch(`/api/documents/${documentId}/metadata`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({ metadata }),
             });
 

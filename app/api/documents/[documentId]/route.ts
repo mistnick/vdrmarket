@@ -153,3 +153,98 @@ export async function DELETE(
     );
   }
 }
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ documentId: string }> }
+) {
+  try {
+    const session = await getSession();
+
+    if (!session?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { documentId } = await params;
+    const body = await request.json();
+
+    // Validate index format if provided
+    if (body.index !== undefined && body.index !== null) {
+      const indexPattern = /^\d+(\.\d+)*$/;
+      if (typeof body.index !== "string" || !indexPattern.test(body.index)) {
+        return NextResponse.json(
+          { error: "Invalid index format. Use numbers separated by dots (e.g., 1.2.3)" },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Get document
+    const document = await prisma.document.findUnique({
+      where: { id: documentId },
+      include: {
+        dataRoom: {
+          include: {
+            groups: {
+              include: {
+                members: {
+                  include: { user: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!document) {
+      return NextResponse.json(
+        { error: "Document not found" },
+        { status: 404 }
+      );
+    }
+
+    // Check permissions (owner or admin)
+    let userMember = null;
+    for (const group of document.dataRoom.groups) {
+      const member = group.members.find(
+        (m) => m.user.email === session.email
+      );
+      if (member) {
+        userMember = member;
+        break;
+      }
+    }
+
+    if (!userMember || (userMember.role !== "owner" && userMember.role !== "admin")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Build update data
+    const updateData: { name?: string; description?: string; index?: string | null } = {};
+    
+    if (body.name !== undefined) {
+      updateData.name = body.name;
+    }
+    if (body.description !== undefined) {
+      updateData.description = body.description;
+    }
+    if (body.index !== undefined) {
+      updateData.index = body.index;
+    }
+
+    // Update document
+    const updatedDocument = await prisma.document.update({
+      where: { id: documentId },
+      data: updateData,
+    });
+
+    return NextResponse.json(updatedDocument);
+  } catch (error) {
+    console.error("Error updating document:", error);
+    return NextResponse.json(
+      { error: "Failed to update document" },
+      { status: 500 }
+    );
+  }
+}

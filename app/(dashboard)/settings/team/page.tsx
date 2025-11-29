@@ -90,7 +90,9 @@ export default function TeamSettingsPage() {
 
   const fetchDataRooms = async () => {
     try {
-      const response = await fetch("/api/datarooms");
+      const response = await fetch("/api/datarooms", {
+        credentials: "include"
+      });
       if (response.ok) {
         const data = await response.json();
         setDataRooms(data.data || []);
@@ -110,7 +112,9 @@ export default function TeamSettingsPage() {
     
     try {
       setLoading(true);
-      const response = await fetch(`/api/datarooms/\${selectedDataRoom}/members`);
+      const response = await fetch(`/api/datarooms/\${selectedDataRoom}/members`, {
+        credentials: "include"
+      });
       if (response.ok) {
         const data = await response.json();
         setMembers(data.data || []);
@@ -130,6 +134,7 @@ export default function TeamSettingsPage() {
       const response = await fetch(`/api/datarooms/\${selectedDataRoom}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           email: inviteEmail,
           role: inviteRole,
@@ -160,6 +165,7 @@ export default function TeamSettingsPage() {
       const response = await fetch(`/api/datarooms/\${selectedDataRoom}/members/\${memberId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ role: newRole }),
       });
 
@@ -181,6 +187,7 @@ export default function TeamSettingsPage() {
     try {
       const response = await fetch(`/api/datarooms/\${selectedDataRoom}/members/\${memberId}`, {
         method: "DELETE",
+        credentials: "include",
       });
 
       if (response.ok) {

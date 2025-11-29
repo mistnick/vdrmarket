@@ -37,7 +37,19 @@ export default function LoginPage() {
         setError("Invalid email or password");
         setLoading(false);
       } else if (result?.ok) {
-        router.push("/dashboard");
+        // Check if user is super admin to redirect to /admin
+        try {
+          const checkRes = await fetch("/api/auth/check-super-admin");
+          const checkData = await checkRes.json();
+          if (checkData.isSuperAdmin) {
+            router.push("/admin");
+          } else {
+            router.push("/dashboard");
+          }
+        } catch {
+          // Fallback to dashboard if check fails
+          router.push("/dashboard");
+        }
         router.refresh();
       } else {
         setError("An error occurred. Please try again.");

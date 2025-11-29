@@ -64,7 +64,9 @@ export default function VDRManagementPage() {
 
     const loadSession = async () => {
         try {
-            const response = await fetch("/api/auth/session");
+            const response = await fetch("/api/auth/session", {
+                credentials: "include"
+            });
             if (response.ok) {
                 const data = await response.json();
                 setCurrentUserId(data.userId);
@@ -76,7 +78,9 @@ export default function VDRManagementPage() {
 
     const loadGroups = async () => {
         try {
-            const response = await fetch(`/api/vdr/${dataRoomId}/groups`);
+            const response = await fetch(`/api/vdr/${dataRoomId}/groups`, {
+                credentials: "include"
+            });
             if (!response.ok) throw new Error("Failed to load groups");
             const data = await response.json();
             setGroups(data);
@@ -96,7 +100,9 @@ export default function VDRManagementPage() {
 
     const loadUsers = async () => {
         try {
-            const response = await fetch(`/api/vdr/${dataRoomId}/users`);
+            const response = await fetch(`/api/vdr/${dataRoomId}/users`, {
+                credentials: "include"
+            });
             if (!response.ok) throw new Error("Failed to load users");
             const data = await response.json();
             setUsers(data.users || []);
@@ -107,7 +113,9 @@ export default function VDRManagementPage() {
 
     const loadActivity = useCallback(async () => {
         try {
-            const response = await fetch(`/api/vdr/${dataRoomId}/activity?scope=${activityScope}`);
+            const response = await fetch(`/api/vdr/${dataRoomId}/activity?scope=${activityScope}`, {
+                credentials: "include"
+            });
             if (!response.ok) throw new Error("Failed to load activity");
             const data = await response.json();
             setActivities(data.activities || []);
@@ -118,7 +126,9 @@ export default function VDRManagementPage() {
 
     const loadRecycleBin = async () => {
         try {
-            const response = await fetch(`/api/vdr/${dataRoomId}/recycle-bin`);
+            const response = await fetch(`/api/vdr/${dataRoomId}/recycle-bin`, {
+                credentials: "include"
+            });
             if (!response.ok) throw new Error("Failed to load recycle bin");
             const data = await response.json();
             setDeletedDocuments(data.documents || []);
@@ -133,6 +143,7 @@ export default function VDRManagementPage() {
             const response = await fetch(`/api/vdr/${dataRoomId}/groups`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify(values),
             });
 
@@ -156,6 +167,7 @@ export default function VDRManagementPage() {
                 {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
+                    credentials: "include",
                     body: JSON.stringify(values),
                 }
             );
@@ -177,6 +189,7 @@ export default function VDRManagementPage() {
         try {
             const response = await fetch(`/api/vdr/${dataRoomId}/groups/${groupId}`, {
                 method: "DELETE",
+                credentials: "include",
             });
 
             if (!response.ok) throw new Error("Failed to delete group");
@@ -194,6 +207,7 @@ export default function VDRManagementPage() {
             const response = await fetch(`/api/vdr/${dataRoomId}/users/invite`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({ ...values, dataRoomId }),
             });
 
@@ -219,6 +233,7 @@ export default function VDRManagementPage() {
             const response = await fetch(`/api/vdr/${dataRoomId}/users/${userId}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify(data),
             });
 
@@ -255,6 +270,7 @@ export default function VDRManagementPage() {
         try {
             const response = await fetch(`/api/vdr/${dataRoomId}/users/${userId}`, {
                 method: "DELETE",
+                credentials: "include",
             });
             if (!response.ok) throw new Error("Failed to deactivate user");
             toast.success("User deactivated");

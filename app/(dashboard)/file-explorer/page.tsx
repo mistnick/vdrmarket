@@ -44,6 +44,7 @@ import {
   Share2,
   Pencil,
   Eye,
+  ListOrdered,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -72,12 +73,21 @@ import { DocumentViewerDialog } from "@/components/documents/document-viewer-dia
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useDataRoomContext } from "@/components/providers/dataroom-provider";
+import {
+  IndexCell,
+  IndexColumnHeader,
+  ManageIndexingDialog,
+  IndexBadge,
+} from "@/components/file-explorer";
+import { compareIndex, getNextIndex, highlightIndexMatch } from "@/lib/utils/index-utils";
+import type { IndexSortDirection, BulkIndexOperation } from "@/types/index-types";
 
 // Types
 interface FileItem {
   id: string;
   name: string;
   type: "file" | "folder" | "dataroom";
+  index: string | null; // Hierarchical index like "1.2.3"
   size?: number;
   labels?: string[];
   notes?: string;
@@ -298,6 +308,7 @@ function NavTreeItem({
         ) : (
           <Folder className="h-4 w-4 shrink-0" />
         )}
+        {item.index && <IndexBadge index={item.index} />}
         <span className="truncate flex-1">{item.name}</span>
         {!isDataRoom && (
           <GripVertical className="h-3 w-3 opacity-0 group-hover:opacity-50 shrink-0" />
@@ -342,6 +353,10 @@ function ContentTreeRow({
   onUploadVersion,
   onViewDocument,
   onRename,
+  canEditIndex,
+  onIndexChange,
+  searchQuery,
+  existingIndices,
 }: {
   item: FileItem;
   level?: number;
@@ -359,6 +374,10 @@ function ContentTreeRow({
   onUploadVersion: (item: FileItem) => void;
   onViewDocument: (item: FileItem) => void;
   onRename: (item: FileItem) => void;
+  canEditIndex: boolean;
+  onIndexChange: (itemId: string, newIndex: string | null) => Promise<void>;
+  searchQuery: string;
+  existingIndices: (string | null)[];
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const isExpanded = expandedIds.has(item.id);
@@ -456,6 +475,15 @@ function ContentTreeRow({
               className="ml-2"
             />
           )}
+        </TableCell>
+        <TableCell className="w-[100px]" onClick={(e) => e.stopPropagation()}>
+          <IndexCell
+            item={{ id: item.id, name: item.name, type: item.type, index: item.index }}
+            canEdit={canEditIndex && !isDataRoom}
+            onIndexChange={onIndexChange}
+            existingIndices={existingIndices}
+            searchQuery={searchQuery}
+          />
         </TableCell>
         <TableCell>
           <div
@@ -683,6 +711,10 @@ function ContentTreeRow({
             onUploadVersion={onUploadVersion}
             onViewDocument={onViewDocument}
             onRename={onRename}
+            canEditIndex={canEditIndex}
+            onIndexChange={onIndexChange}
+            searchQuery={searchQuery}
+            existingIndices={existingIndices}
           />
         ))}
     </>
@@ -716,6 +748,7 @@ export default function FileExplorerPage() {
   // Dialog states
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [newFolderIndex, setNewFolderIndex] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<FileItem | null>(null);
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
@@ -736,6 +769,14 @@ export default function FileExplorerPage() {
   // Document viewer states
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerDocument, setViewerDocument] = useState<FileItem | null>(null);
+
+  // Index management states
+  const [indexSortDirection, setIndexSortDirection] = useState<IndexSortDirection>(null);
+  const [manageIndexingOpen, setManageIndexingOpen] = useState(false);
+  const [userRole, setUserRole] = useState<string>("viewer");
+  
+  // Derive canEditIndex from user role (owner or admin can edit)
+  const canEditIndex = userRole === "owner" || userRole === "admin";
 
   // Reset drag state when leaving window or on dragend
   useEffect(() => {
@@ -799,6 +840,7 @@ export default function FileExplorerPage() {
             id: folder.id,
             name: folder.name,
             type: "folder",
+            index: (folder as any).index || null, // Index from API
             dataRoomId: dr.id,
             parentId: folder.parentId || undefined,
             children: [],
@@ -821,6 +863,7 @@ export default function FileExplorerPage() {
             id: doc.id,
             name: doc.name,
             type: "file",
+            index: (doc as any).index || null, // Index from API
             size: doc.fileSize,
             fileType: doc.fileType,
             notes: doc.description || undefined,
@@ -840,6 +883,7 @@ export default function FileExplorerPage() {
           id: dr.id,
           name: dr.name,
           type: "dataroom",
+          index: null, // DataRooms don't have indices
           notes: dr.description || undefined,
           children: rootFolders,
           createdAt: dr.createdAt,
@@ -866,6 +910,36 @@ export default function FileExplorerPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Fetch user permissions when selected item changes
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      if (!selectedItem) {
+        setUserRole("viewer");
+        return;
+      }
+
+      const dataRoomId = selectedItem.type === "dataroom"
+        ? selectedItem.id
+        : selectedItem.dataRoomId;
+
+      if (!dataRoomId) {
+        setUserRole("viewer");
+        return;
+      }
+
+      try {
+        const { data } = await authFetch<{ role: string; canEditIndex: boolean }>(
+          `/api/datarooms/${dataRoomId}/my-permissions`
+        );
+        setUserRole(data?.role || "viewer");
+      } catch {
+        setUserRole("viewer");
+      }
+    };
+
+    fetchPermissions();
+  }, [selectedItem, authFetch]);
 
   // Helper function to find item by ID in tree
   const findItemById = useCallback((items: FileItem[], id: string): FileItem | null => {
@@ -902,7 +976,7 @@ export default function FileExplorerPage() {
   // Flatten all items for search
   const allFlatItems = useMemo(() => flattenTree(dataRooms), [dataRooms]);
 
-  // Filter by search
+  // Filter by search - also matches index
   const filteredContents = useMemo(() => {
     if (!searchQuery) return currentContents;
 
@@ -910,18 +984,34 @@ export default function FileExplorerPage() {
     const matchingItems = allFlatItems.filter(
       (item) =>
         item.name.toLowerCase().includes(query) ||
-        item.notes?.toLowerCase().includes(query)
+        item.notes?.toLowerCase().includes(query) ||
+        // Match by index (exact or prefix)
+        (item.index && item.index.toLowerCase().includes(query))
     );
 
     return matchingItems;
   }, [currentContents, searchQuery, allFlatItems]);
 
-  // Sort contents
+  // Sort contents - with index sorting support
   const sortedContents = useMemo(() => {
     const sorted = [...filteredContents].sort((a, b) => {
       const typeOrder = { dataroom: 0, folder: 1, file: 2 };
       if (a.type !== b.type) {
         return typeOrder[a.type] - typeOrder[b.type];
+      }
+
+      // If index sorting is active, use index comparison
+      if (indexSortDirection !== null) {
+        // Items without index always go to the end, regardless of sort direction
+        const hasIndexA = a.index !== null && a.index !== undefined && a.index !== "";
+        const hasIndexB = b.index !== null && b.index !== undefined && b.index !== "";
+        
+        if (!hasIndexA && !hasIndexB) return 0;
+        if (!hasIndexA) return 1;  // a goes to end
+        if (!hasIndexB) return -1; // b goes to end
+        
+        const indexComparison = compareIndex(a.index, b.index);
+        return indexSortDirection === "asc" ? indexComparison : -indexComparison;
       }
 
       let comparison = 0;
@@ -939,7 +1029,7 @@ export default function FileExplorerPage() {
     });
 
     return sorted;
-  }, [filteredContents, sortColumn, sortDirection]);
+  }, [filteredContents, sortColumn, sortDirection, indexSortDirection]);
 
   const toggleNavExpand = useCallback((id: string) => {
     setNavExpandedIds((prev) => {
@@ -966,6 +1056,8 @@ export default function FileExplorerPage() {
   }, []);
 
   const handleSort = (column: "name" | "size" | "date") => {
+    // Reset index sorting when sorting by other columns
+    setIndexSortDirection(null);
     if (sortColumn === column) {
       setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
@@ -973,6 +1065,94 @@ export default function FileExplorerPage() {
       setSortDirection("asc");
     }
   };
+
+  // Handle index column sorting (cycles: null -> asc -> desc -> null)
+  const handleIndexSort = () => {
+    setIndexSortDirection((prev) => {
+      if (prev === null) return "asc";
+      if (prev === "asc") return "desc";
+      return null;
+    });
+  };
+
+  // Get existing indices in current folder for validation
+  const existingIndices = useMemo(() => {
+    return currentContents.map((item) => item.index);
+  }, [currentContents]);
+
+  // Handle index change for a single item
+  const handleIndexChange = useCallback(
+    async (itemId: string, newIndex: string | null) => {
+      const item = findItemById(dataRooms, itemId);
+      if (!item) return;
+
+      try {
+        const endpoint = item.type === "file"
+          ? `/api/documents/${itemId}`
+          : `/api/folders/${itemId}`;
+
+        const response = await fetch(endpoint, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ index: newIndex }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to update index");
+        }
+
+        toast.success("Index updated");
+        fetchData(); // Refresh data
+      } catch (error) {
+        console.error("Failed to update index:", error);
+        toast.error("Failed to update index");
+        throw error;
+      }
+    },
+    [dataRooms, findItemById, fetchData]
+  );
+
+  // Handle bulk index update from manage dialog
+  const handleBulkIndexUpdate = useCallback(
+    async (operations: BulkIndexOperation[]) => {
+      try {
+        // Update indices one by one (could be optimized to bulk API)
+        for (const op of operations) {
+          const item = findItemById(dataRooms, op.itemId);
+          if (!item) continue;
+
+          const endpoint = item.type === "file"
+            ? `/api/documents/${op.itemId}`
+            : `/api/folders/${op.itemId}`;
+
+          const response = await fetch(endpoint, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ index: op.newIndex || null }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to update index for ${item.name}`);
+          }
+        }
+
+        toast.success(`Updated ${operations.length} indices`);
+        fetchData(); // Refresh data
+      } catch (error) {
+        console.error("Failed to update indices:", error);
+        toast.error("Failed to update indices");
+        throw error;
+      }
+    },
+    [dataRooms, findItemById, fetchData]
+  );
+
+  // Get next available index for new items
+  const getNextAvailableIndex = useCallback(() => {
+    return getNextIndex(existingIndices, selectedItem?.index);
+  }, [existingIndices, selectedItem?.index]);
 
   const handleNavigate = (item: FileItem) => {
     setSelectedItem(item);
@@ -993,14 +1173,18 @@ export default function FileExplorerPage() {
   const createFolder = async (
     name: string,
     parentId: string | null,
-    dataRoomId: string
+    dataRoomId: string,
+    index?: string | null
   ): Promise<{ id: string } | null> => {
-    const payload: Record<string, string> = {
+    const payload: Record<string, string | null> = {
       name,
       dataRoomId,
     };
     if (parentId) {
       payload.parentId = parentId;
+    }
+    if (index) {
+      payload.index = index;
     }
 
     const { data, error } = await authFetch<{ success: boolean; data: { id: string } }>(
@@ -1018,11 +1202,12 @@ export default function FileExplorerPage() {
     return data.data;
   };
 
-  // Upload file helper
+  // Upload file helper - uses /api/upload for large files (>10MB)
   const uploadFile = async (
     file: File,
     folderId: string | null,
-    dataRoomId: string
+    dataRoomId: string,
+    index?: string | null
   ): Promise<boolean> => {
     const formData = new FormData();
     formData.append("file", file);
@@ -1031,10 +1216,19 @@ export default function FileExplorerPage() {
     if (folderId) {
       formData.append("folderId", folderId);
     }
+    if (index) {
+      formData.append("index", index);
+    }
 
-    const response = await fetch("/api/documents", {
+    // Use Pages Router API for large files (better streaming support)
+    const uploadUrl = file.size > 10 * 1024 * 1024 
+      ? "/api/upload" 
+      : "/api/documents";
+
+    const response = await fetch(uploadUrl, {
       method: "POST",
       body: formData,
+      credentials: "include",
     });
 
     const result = await response.json();
@@ -1058,6 +1252,7 @@ export default function FileExplorerPage() {
     }
 
     const baseParentId = selectedItem.type === "folder" ? selectedItem.id : null;
+    const baseParentIndex = selectedItem.type === "folder" ? selectedItem.index : null;
 
     // Group files by their directory path
     const filesByPath = new Map<string, File[]>();
@@ -1089,8 +1284,13 @@ export default function FileExplorerPage() {
       return aDepth - bDepth;
     });
 
-    // Create folder structure
+    // Create folder structure with auto-indexing
     const folderIdMap = new Map<string, string>();
+    const folderIndexMap = new Map<string, string>(); // Track indices for each folder
+    
+    // Track used indices per parent to avoid duplicates
+    const usedIndicesByParent = new Map<string, string[]>();
+    usedIndicesByParent.set("", [...existingIndices.filter((i): i is string => i !== null)]);
 
     for (const path of sortedPaths) {
       const pathParts = path.split("/");
@@ -1098,22 +1298,47 @@ export default function FileExplorerPage() {
       const parentPath = pathParts.slice(0, -1).join("/");
 
       let parentFolderId = parentPath ? folderIdMap.get(parentPath) : baseParentId;
+      let parentIndex = parentPath ? folderIndexMap.get(parentPath) : baseParentIndex;
 
-      const newFolder = await createFolder(folderName, parentFolderId || null, dataRoomId);
+      // Get or initialize used indices for this parent
+      const parentKey = parentPath || "";
+      if (!usedIndicesByParent.has(parentKey)) {
+        usedIndicesByParent.set(parentKey, []);
+      }
+      const usedIndices = usedIndicesByParent.get(parentKey)!;
+
+      // Calculate next index for this folder
+      const folderIndex = getNextIndex(usedIndices, parentIndex);
+      usedIndices.push(folderIndex);
+
+      const newFolder = await createFolder(folderName, parentFolderId || null, dataRoomId, folderIndex);
       if (newFolder) {
         folderIdMap.set(path, newFolder.id);
+        folderIndexMap.set(path, folderIndex);
       }
     }
 
-    // Upload files to their respective folders
+    // Upload files to their respective folders with auto-indexing
     let successCount = 0;
     let failCount = 0;
 
     for (const [dirPath, dirFiles] of filesByPath) {
       const folderId = dirPath ? folderIdMap.get(dirPath) : baseParentId;
+      const folderIndex = dirPath ? folderIndexMap.get(dirPath) : baseParentIndex;
+
+      // Get or initialize used indices for this folder
+      const folderKey = dirPath || "";
+      if (!usedIndicesByParent.has(folderKey)) {
+        usedIndicesByParent.set(folderKey, []);
+      }
+      const usedIndices = usedIndicesByParent.get(folderKey)!;
 
       for (const file of dirFiles) {
-        const success = await uploadFile(file, folderId || null, dataRoomId);
+        // Calculate next index for this file
+        const fileIndex = getNextIndex(usedIndices, folderIndex);
+        usedIndices.push(fileIndex);
+
+        const success = await uploadFile(file, folderId || null, dataRoomId, fileIndex);
         if (success) {
           successCount++;
         } else {
@@ -1156,9 +1381,19 @@ export default function FileExplorerPage() {
         const folderId = selectedItem.type === "folder" ? selectedItem.id : null;
 
         let successCount = 0;
+        // Start with the next available index and increment for each file
+        let currentIndex = getNextAvailableIndex();
+        const usedIndices = [...existingIndices];
+        
         for (const file of Array.from(files)) {
-          const success = await uploadFile(file, folderId, dataRoomId);
-          if (success) successCount++;
+          // Pass auto-generated index for each file
+          const success = await uploadFile(file, folderId, dataRoomId, currentIndex);
+          if (success) {
+            successCount++;
+            // Add used index to track and get next
+            usedIndices.push(currentIndex);
+            currentIndex = getNextIndex(usedIndices, selectedItem?.index);
+          }
         }
 
         toast.success(`${successCount} file caricati con successo`);
@@ -1277,27 +1512,60 @@ export default function FileExplorerPage() {
     if (!targetDataRoomId) return;
 
     try {
+      // Fetch existing items in target location to calculate new index
+      let targetContents: FileItem[] = [];
+      
+      // Fetch folders in target
+      const foldersUrl = targetFolderId
+        ? `/api/folders?dataRoomId=${targetDataRoomId}&parentId=${targetFolderId}`
+        : `/api/folders?dataRoomId=${targetDataRoomId}`;
+      const { data: foldersData } = await authFetch<{ success: boolean; data: { id: string; index: string | null }[] }>(foldersUrl);
+      if (foldersData?.data) {
+        targetContents = targetContents.concat(
+          foldersData.data.map((f) => ({ id: f.id, name: "", type: "folder" as const, index: f.index }))
+        );
+      }
+      
+      // Fetch documents in target
+      const docsUrl = targetFolderId
+        ? `/api/datarooms/${targetDataRoomId}/documents?folderId=${targetFolderId}`
+        : `/api/datarooms/${targetDataRoomId}/documents`;
+      const { data: docsData } = await authFetch<{ success: boolean; data: { id: string; index: string | null }[] }>(docsUrl);
+      if (docsData?.data) {
+        targetContents = targetContents.concat(
+          docsData.data.map((d) => ({ id: d.id, name: "", type: "file" as const, index: d.index }))
+        );
+      }
+      
+      // Calculate next available index in target
+      const targetIndices = targetContents
+        .filter((item) => item.id !== draggedItemId) // Exclude the item being moved
+        .map((item) => item.index);
+      const newIndex = getNextIndex(targetIndices, targetItem.type === "folder" ? targetItem.index : null);
+
       if (draggedItemData.type === "file") {
-        // Move document
+        // Move document with new index
         const { error } = await authFetch(`/api/documents/${draggedItemId}/move`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             folderId: targetFolderId,
             dataRoomId: targetDataRoomId,
+            index: newIndex,
           }),
         });
 
         if (error) throw new Error(error);
         toast.success("File spostato con successo");
       } else if (draggedItemData.type === "folder") {
-        // Move folder
+        // Move folder with new index
         const { error } = await authFetch(`/api/folders/${draggedItemId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             parentId: targetFolderId,
             dataRoomId: targetDataRoomId,
+            index: newIndex,
           }),
         });
 
@@ -1331,8 +1599,10 @@ export default function FileExplorerPage() {
       }
 
       const parentId = selectedItem.type === "folder" ? selectedItem.id : null;
+      // Auto-assign index if not provided
+      const indexToUse = newFolderIndex.trim() || getNextAvailableIndex();
 
-      const result = await createFolder(newFolderName.trim(), parentId, dataRoomId);
+      const result = await createFolder(newFolderName.trim(), parentId, dataRoomId, indexToUse);
 
       if (!result) {
         throw new Error("Errore nella creazione della cartella");
@@ -1341,6 +1611,7 @@ export default function FileExplorerPage() {
       toast.success("Cartella creata con successo");
       setCreateFolderOpen(false);
       setNewFolderName("");
+      setNewFolderIndex("");
       fetchData();
     } catch (err) {
       console.error("Create folder error:", err);
@@ -1381,7 +1652,9 @@ export default function FileExplorerPage() {
     if (item.type === "file") {
       // Direct download for single file
       try {
-        const response = await fetch(`/api/documents/${item.id}/download`);
+        const response = await fetch(`/api/documents/${item.id}/download`, {
+          credentials: "include",
+        });
         if (!response.ok) throw new Error("Download failed");
 
         const blob = await response.blob();
@@ -1471,6 +1744,7 @@ export default function FileExplorerPage() {
           password: downloadPassword || undefined,
           archiveName: downloadArchiveName || "download",
         }),
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -1568,6 +1842,7 @@ export default function FileExplorerPage() {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ documentIds, folderIds }),
+        credentials: "include",
       });
 
       const result = await response.json();
@@ -1943,6 +2218,19 @@ export default function FileExplorerPage() {
                     </Button>
                   </div>
                 )}
+
+                {/* Manage Indexing Button */}
+                {canEditIndex && selectedItem && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setManageIndexingOpen(true)}
+                    className="ml-auto"
+                  >
+                    <ListOrdered className="mr-2 h-4 w-4" />
+                    Gestisci Indici
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -1957,12 +2245,18 @@ export default function FileExplorerPage() {
                         onCheckedChange={handleSelectAll}
                       />
                     </TableHead>
+                    <TableHead className="w-[100px]">
+                      <IndexColumnHeader
+                        sortDirection={indexSortDirection}
+                        onSort={handleIndexSort}
+                      />
+                    </TableHead>
                     <TableHead
-                      className="w-[35%] cursor-pointer hover:bg-muted/50"
+                      className="w-[30%] cursor-pointer hover:bg-muted/50"
                       onClick={() => handleSort("name")}
                     >
                       Nome
-                      {sortColumn === "name" && (
+                      {sortColumn === "name" && indexSortDirection === null && (
                         <ArrowUpDown className="ml-2 h-4 w-4 inline" />
                       )}
                     </TableHead>
@@ -1972,7 +2266,7 @@ export default function FileExplorerPage() {
                       onClick={() => handleSort("date")}
                     >
                       Data
-                      {sortColumn === "date" && (
+                      {sortColumn === "date" && indexSortDirection === null && (
                         <ArrowUpDown className="ml-2 h-4 w-4 inline" />
                       )}
                     </TableHead>
@@ -1981,7 +2275,7 @@ export default function FileExplorerPage() {
                       onClick={() => handleSort("size")}
                     >
                       Dimensione
-                      {sortColumn === "size" && (
+                      {sortColumn === "size" && indexSortDirection === null && (
                         <ArrowUpDown className="ml-2 h-4 w-4 inline" />
                       )}
                     </TableHead>
@@ -1992,7 +2286,7 @@ export default function FileExplorerPage() {
                 <TableBody>
                   {sortedContents.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-32 text-center">
+                      <TableCell colSpan={8} className="h-32 text-center">
                         <div className="flex flex-col items-center gap-2 text-muted-foreground">
                           <Folder className="h-8 w-8" />
                           <p>
@@ -2034,6 +2328,10 @@ export default function FileExplorerPage() {
                           setViewerOpen(true);
                         }}
                         onRename={handleRenameClick}
+                        canEditIndex={canEditIndex}
+                        onIndexChange={handleIndexChange}
+                        searchQuery={searchQuery}
+                        existingIndices={existingIndices}
                       />
                     ))
                   )}
@@ -2069,6 +2367,19 @@ export default function FileExplorerPage() {
                   }
                 }}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="folderIndex">Indice (opzionale)</Label>
+              <Input
+                id="folderIndex"
+                placeholder={getNextAvailableIndex()}
+                value={newFolderIndex}
+                onChange={(e) => setNewFolderIndex(e.target.value)}
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground">
+                Formato: numeri separati da punti (es. 1.2.3). Suggerito: {getNextAvailableIndex()}
+              </p>
             </div>
           </div>
           <DialogFooter>
@@ -2270,6 +2581,20 @@ export default function FileExplorerPage() {
           size: viewerDocument.size,
         } : null}
         allowDownload={true}
+      />
+
+      {/* Manage Indexing Dialog */}
+      <ManageIndexingDialog
+        open={manageIndexingOpen}
+        onOpenChange={setManageIndexingOpen}
+        items={currentContents.map((item) => ({
+          id: item.id,
+          name: item.name,
+          type: item.type,
+          index: item.index,
+        }))}
+        parentIndex={selectedItem?.index}
+        onSave={handleBulkIndexUpdate}
       />
     </div>
   );

@@ -48,7 +48,24 @@ export async function GET(
                 dataRoomId: id,
                 ...(folderId ? { folderId } : { folderId: null }),
             },
-            include: {
+            select: {
+                id: true,
+                name: true,
+                description: true,
+                file: true,
+                fileType: true,
+                fileSize: true,
+                versions: true,
+                dataRoomId: true,
+                ownerId: true,
+                folderId: true,
+                index: true,
+                scanStatus: true,
+                scanResult: true,
+                deletedAt: true,
+                deletedById: true,
+                createdAt: true,
+                updatedAt: true,
                 owner: {
                     select: {
                         id: true,

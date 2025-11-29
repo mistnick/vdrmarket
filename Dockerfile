@@ -112,12 +112,16 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
+# Copy entrypoint script
+COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x docker-entrypoint.sh
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
-# Use dumb-init to handle signals properly
-ENTRYPOINT ["dumb-init", "--"]
+# Use dumb-init to handle signals properly and run entrypoint
+ENTRYPOINT ["dumb-init", "--", "./docker-entrypoint.sh"]
 
-# Start server
+# Start server (passed to entrypoint script)
 CMD ["node", "server.js"]

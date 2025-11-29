@@ -83,6 +83,7 @@ export function CreateFolderDialog({
                     dataRoomId,
                     parentId,
                 }),
+                credentials: "include",
             });
 
             const result = await response.json();

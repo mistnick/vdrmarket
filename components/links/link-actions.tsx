@@ -48,6 +48,7 @@ export function LinkActions({ slug, linkName }: LinkActionsProps) {
         try {
             const response = await fetch(`/api/links/${slug}`, {
                 method: "DELETE",
+                credentials: "include",
             });
 
             if (!response.ok) {

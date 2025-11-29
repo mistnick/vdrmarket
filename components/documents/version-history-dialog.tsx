@@ -62,7 +62,9 @@ export function VersionHistoryDialog({
         setError("");
 
         try {
-            const response = await fetch(`/api/documents/${documentId}/versions`);
+            const response = await fetch(`/api/documents/${documentId}/versions`, {
+                credentials: "include",
+            });
             const data = await response.json();
 
             if (!response.ok) {
@@ -94,6 +96,7 @@ export function VersionHistoryDialog({
                 `/api/documents/${documentId}/versions/${versionId}/restore`,
                 {
                     method: "POST",
+                    credentials: "include",
                 }
             );
 
@@ -115,7 +118,9 @@ export function VersionHistoryDialog({
 
     const handleDownload = async (versionId: string) => {
         try {
-            const response = await fetch(`/api/documents/${documentId}/versions/${versionId}/download`);
+            const response = await fetch(`/api/documents/${documentId}/versions/${versionId}/download`, {
+                credentials: "include",
+            });
             if (response.ok) {
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);

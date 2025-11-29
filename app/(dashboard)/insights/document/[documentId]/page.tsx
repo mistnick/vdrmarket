@@ -58,7 +58,9 @@ export default function DocumentAnalyticsPage({ params }: { params: Promise<{ id
 
     const fetchAnalytics = async () => {
         try {
-            const response = await fetch(`/api/analytics/document/${unwrappedParams.id}`);
+            const response = await fetch(`/api/analytics/document/${unwrappedParams.id}`, {
+                credentials: "include"
+            });
             const data = await response.json();
 
             if (!response.ok) {

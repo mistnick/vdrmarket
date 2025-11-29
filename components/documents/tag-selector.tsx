@@ -38,7 +38,9 @@ export function TagSelector({
 
     const fetchDocumentTags = async () => {
         try {
-            const response = await fetch(`/api/documents/${documentId}/tags`);
+            const response = await fetch(`/api/documents/${documentId}/tags`, {
+                credentials: "include"
+            });
             const data = await response.json();
 
             if (!response.ok) {
@@ -56,7 +58,9 @@ export function TagSelector({
         setLoading(true);
 
         try {
-            const response = await fetch(`/api/datarooms/${dataRoomId}/tags`);
+            const response = await fetch(`/api/datarooms/${dataRoomId}/tags`, {
+                credentials: "include"
+            });
             const data = await response.json();
 
             if (!response.ok) {
@@ -82,6 +86,7 @@ export function TagSelector({
             const response = await fetch(`/api/documents/${documentId}/tags`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({ tagId: tag.id }),
             });
 
@@ -109,6 +114,7 @@ export function TagSelector({
                 `/api/documents/${documentId}/tags/${tagId}`,
                 {
                     method: "DELETE",
+                    credentials: "include",
                 }
             );
 
@@ -134,6 +140,7 @@ export function TagSelector({
             const createResponse = await fetch(`/api/datarooms/${dataRoomId}/tags`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({ name: search.trim(), color: "#3b82f6" }),
             });
 

@@ -43,7 +43,9 @@ export default function DataRoomDetailPage({ params }: { params: Promise<{ id: s
     const fetchDataRoomDetails = async () => {
         try {
             // Fetch data room details
-            const drResponse = await fetch(`/api/datarooms/${unwrappedParams.id}`);
+            const drResponse = await fetch(`/api/datarooms/${unwrappedParams.id}`, {
+                credentials: "include"
+            });
             const drData = await drResponse.json();
 
             if (!drResponse.ok) {
@@ -53,21 +55,27 @@ export default function DataRoomDetailPage({ params }: { params: Promise<{ id: s
             setDataRoom(drData.data);
 
             // Fetch documents in this data room
-            const docsResponse = await fetch(`/api/datarooms/${unwrappedParams.id}/documents`);
+            const docsResponse = await fetch(`/api/datarooms/${unwrappedParams.id}/documents`, {
+                credentials: "include"
+            });
             if (docsResponse.ok) {
                 const docsData = await docsResponse.json();
                 setDocuments(docsData.data || []);
             }
 
             // Fetch folders in this data room
-            const foldersResponse = await fetch(`/api/datarooms/${unwrappedParams.id}/folders`);
+            const foldersResponse = await fetch(`/api/datarooms/${unwrappedParams.id}/folders`, {
+                credentials: "include"
+            });
             if (foldersResponse.ok) {
                 const foldersData = await foldersResponse.json();
                 setFolders(foldersData.data || []);
             }
 
             // Fetch permissions
-            const permsResponse = await fetch(`/api/datarooms/${unwrappedParams.id}/permissions`);
+            const permsResponse = await fetch(`/api/datarooms/${unwrappedParams.id}/permissions`, {
+                credentials: "include"
+            });
             if (permsResponse.ok) {
                 const permsData = await permsResponse.json();
                 setPermissions(permsData.data || []);

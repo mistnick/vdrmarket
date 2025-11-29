@@ -1,11 +1,13 @@
 /**
  * React hook for checking user permissions in the UI
  * Based on GroupType: ADMINISTRATOR, USER, CUSTOM
+ * Also considers TenantUser role for tenant-level permissions
  */
 
 import { useCallback } from "react";
 import useSWR from "swr";
 import { useCurrentDataRoomId } from "@/components/providers/dataroom-provider";
+import { useTenant } from "@/hooks/use-tenant";
 
 export type GroupType = "ADMINISTRATOR" | "USER" | "CUSTOM";
 
@@ -236,15 +238,40 @@ export function usePermissions(dataRoomId: string | null | undefined) {
 
 /**
  * Hook per i permessi usando il dataroom dal context
+ * Se l'utente è TENANT_ADMIN e non ha dataroom, restituisce permessi admin completi
  */
 export function useCurrentPermissions() {
     const dataRoomId = useCurrentDataRoomId();
     const { dataRoom: firstDataRoom } = useFirstDataRoom();
+    const { isTenantAdmin, hasTenant } = useTenant();
     
     // Usa il dataroom dal context, o il primo disponibile come fallback
     const effectiveDataRoomId = dataRoomId ?? firstDataRoom?.id ?? null;
     
-    return usePermissions(effectiveDataRoomId);
+    const dataRoomPermissions = usePermissions(effectiveDataRoomId);
+    
+    // Se l'utente è TENANT_ADMIN e non ha un dataroom selezionato (o non esistono dataroom),
+    // restituisce comunque i permessi di amministratore
+    if (hasTenant && isTenantAdmin && !effectiveDataRoomId) {
+        return {
+            permissions: ADMINISTRATOR_PERMISSIONS,
+            isLoading: dataRoomPermissions.isLoading,
+            error: dataRoomPermissions.error,
+            memberships: [],
+        };
+    }
+    
+    // Se l'utente è TENANT_ADMIN, assicurati che abbia almeno i permessi admin
+    if (hasTenant && isTenantAdmin && dataRoomPermissions.permissions.groupType === null) {
+        return {
+            permissions: ADMINISTRATOR_PERMISSIONS,
+            isLoading: dataRoomPermissions.isLoading,
+            error: dataRoomPermissions.error,
+            memberships: dataRoomPermissions.memberships,
+        };
+    }
+    
+    return dataRoomPermissions;
 }
 
 /**

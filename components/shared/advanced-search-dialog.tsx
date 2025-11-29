@@ -88,7 +88,9 @@ export function AdvancedSearchDialog({
                 if (filters.tags?.length)
                     params.append("tags", filters.tags.join(","));
 
-                const res = await fetch(`/api/search?${params.toString()}`);
+                const res = await fetch(`/api/search?${params.toString()}`, {
+                    credentials: "include"
+                });
                 if (res.ok) {
                     const data = await res.json();
                     // Transform API response to match SearchResult interface

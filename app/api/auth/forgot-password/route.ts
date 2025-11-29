@@ -47,19 +47,23 @@ export async function POST(request: Request) {
     // For now, just log the URL (in production, use Resend or similar)
     console.log(`Password reset URL for ${email}: ${resetUrl}`);
 
-    // If email service is configured, send the email
-    if (process.env.RESEND_API_KEY) {
-      try {
-        const { sendPasswordResetEmail } = await import("@/lib/email/service");
-        await sendPasswordResetEmail({
-          to: email,
-          userName: user.name || "User",
-          resetLink: resetUrl,
-        });
-      } catch (emailError) {
-        console.error("Failed to send reset email:", emailError);
-        // Don't fail the request if email fails
+    // Send email using configured email service (SMTP, Resend, SES, etc.)
+    try {
+      const { sendPasswordResetEmail } = await import("@/lib/email/service");
+      const emailSent = await sendPasswordResetEmail({
+        to: email,
+        userName: user.name || "User",
+        resetLink: resetUrl,
+      });
+
+      if (emailSent) {
+        console.log(`✅ Password reset email sent to ${email}`);
+      } else {
+        console.error(`❌ Failed to send password reset email to ${email}`);
       }
+    } catch (emailError) {
+      console.error("Failed to send reset email:", emailError);
+      // Don't fail the request if email fails
     }
 
     return NextResponse.json({

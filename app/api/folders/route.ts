@@ -57,7 +57,18 @@ export async function GET(request: Request) {
         dataRoomId,
         parentId: parentId || null,
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        dataRoomId: true,
+        ownerId: true,
+        parentId: true,
+        path: true,
+        index: true,
+        deletedAt: true,
+        deletedById: true,
+        createdAt: true,
+        updatedAt: true,
         owner: true,
         _count: {
           select: {
@@ -96,13 +107,24 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, dataRoomId, parentId } = body;
+    const { name, dataRoomId, parentId, index } = body;
 
     if (!name || !dataRoomId) {
       return NextResponse.json(
         { success: false, error: "name and dataRoomId are required" },
         { status: 400 }
       );
+    }
+
+    // Validate index format if provided
+    if (index !== undefined && index !== null) {
+      const indexPattern = /^\d+(\.\d+)*$/;
+      if (typeof index !== "string" || !indexPattern.test(index)) {
+        return NextResponse.json(
+          { success: false, error: "Invalid index format. Use numbers separated by dots (e.g., 1.2.3)" },
+          { status: 400 }
+        );
+      }
     }
 
     const user = await prisma.user.findUnique({
@@ -158,6 +180,7 @@ export async function POST(request: Request) {
         ownerId: user.id,
         parentId: parentId || null,
         path,
+        index: index || null,
       },
       include: {
         owner: true,
@@ -176,6 +199,7 @@ export async function POST(request: Request) {
         metadata: {
           folderName: name,
           path,
+          index: index || null,
         },
       },
     });

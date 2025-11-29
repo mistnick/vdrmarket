@@ -44,7 +44,9 @@ function LinksContent() {
   const fetchLinks = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/links");
+      const response = await fetch("/api/links", {
+        credentials: "include"
+      });
       if (response.ok) {
         const result = await response.json();
         setLinks(result.data || []);

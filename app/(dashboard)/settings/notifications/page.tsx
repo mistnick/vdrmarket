@@ -62,7 +62,9 @@ export default function NotificationSettingsPage() {
     const fetchPreferences = async () => {
         try {
             setLoading(true);
-            const response = await fetch("/api/notifications/preferences");
+            const response = await fetch("/api/notifications/preferences", {
+                credentials: "include"
+            });
             if (response.ok) {
                 const result = await response.json();
                 if (result.success && result.data) {
@@ -83,6 +85,7 @@ export default function NotificationSettingsPage() {
             const response = await fetch("/api/notifications/preferences", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify(preferences),
             });
 

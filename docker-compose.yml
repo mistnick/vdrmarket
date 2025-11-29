@@ -85,14 +85,15 @@ services:
       AUTH_TRUST_HOST: "true"
 
       # Storage (S3 Compatible - MinIO for development)
-      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-s3}
-      AWS_REGION: ${AWS_REGION:-us-east-1}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-dataroom}
-      AWS_ENDPOINT: ${AWS_ENDPOINT:-http://minio:9000}
+      # NOTA: Questi valori sono hardcoded per Docker, non usare .env
+      STORAGE_PROVIDER: s3
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_S3_BUCKET: dataroom
+      AWS_ENDPOINT: http://minio:9000
       AWS_S3_FORCE_PATH_STYLE: "true"
-      NEXT_PUBLIC_STORAGE_URL: ${NEXT_PUBLIC_STORAGE_URL:-http://localhost:9100}
+      NEXT_PUBLIC_STORAGE_URL: http://localhost:9100
 
       # Redis
       REDIS_URL: redis://redis:6379
@@ -100,9 +101,16 @@ services:
       # Application
       NEXT_PUBLIC_APP_URL: http://localhost:3000
 
-      # Email Service (Resend)
+      # Email Service (SMTP)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_SECURE: ${SMTP_SECURE:-true}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EMAIL_FROM: ${EMAIL_FROM:-SimpleVDR <no-reply@inwise.it>}
+      
+      # Email Service (Resend - fallback)
       RESEND_API_KEY: ${RESEND_API_KEY:-}
-      EMAIL_FROM: ${EMAIL_FROM:-DataRoom <onboarding@resend.dev>}
 
       # Monitoring (Optional)
       NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}

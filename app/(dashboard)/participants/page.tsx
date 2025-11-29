@@ -247,7 +247,9 @@ function ParticipantsContent() {
   const fetchDataRooms = useCallback(async () => {
     try {
       setError(null);
-      const response = await fetch("/api/datarooms");
+      const response = await fetch("/api/datarooms", {
+        credentials: "include"
+      });
       const data = await response.json();
 
       if (!response.ok) {
@@ -275,7 +277,9 @@ function ParticipantsContent() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`/api/datarooms/${selectedDataRoom}/groups`);
+      const response = await fetch(`/api/datarooms/${selectedDataRoom}/groups`, {
+        credentials: "include"
+      });
       const data = await response.json();
 
       if (!response.ok) {
@@ -312,7 +316,9 @@ function ParticipantsContent() {
     if (!selectedDataRoom) return;
 
     try {
-      const response = await fetch(`/api/datarooms/${selectedDataRoom}/invitations`);
+      const response = await fetch(`/api/datarooms/${selectedDataRoom}/invitations`, {
+        credentials: "include"
+      });
       const data = await response.json();
 
       if (response.ok && data.success) {
@@ -332,6 +338,7 @@ function ParticipantsContent() {
       const response = await fetch(`/api/datarooms/${selectedDataRoom}/invitations/resend`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ invitationId }),
       });
 
@@ -358,7 +365,7 @@ function ParticipantsContent() {
     try {
       const response = await fetch(
         `/api/datarooms/${selectedDataRoom}/invitations?invitationId=${invitationId}`,
-        { method: "DELETE" }
+        { method: "DELETE", credentials: "include" }
       );
 
       const data = await response.json();
@@ -385,6 +392,7 @@ function ParticipantsContent() {
       const response = await fetch(`/api/datarooms/${selectedDataRoom}/invitations/activate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ invitationId }),
       });
 
@@ -492,6 +500,7 @@ function ParticipantsContent() {
       const response = await fetch(`/api/vdr/${selectedDataRoom}/users/invite`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           email: newParticipant.email,
           name: newParticipant.name,
@@ -596,6 +605,7 @@ function ParticipantsContent() {
           fetch(`/api/users/${userId}/status`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
+            credentials: "include",
             body: JSON.stringify({ isActive: newIsActive }),
           }).then(async (res) => {
             if (!res.ok) {
@@ -691,6 +701,7 @@ function ParticipantsContent() {
     try {
       const response = await fetch(`/api/vdr/${selectedDataRoom}/groups/${groupId}/members?userId=${userId}`, {
         method: "DELETE",
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -729,6 +740,7 @@ function ParticipantsContent() {
         const response = await fetch(`/api/datarooms/${selectedDataRoom}/invitations/resend`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ invitationId: invitation.id }),
         });
 

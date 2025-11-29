@@ -39,8 +39,14 @@ export default function DataRoomUploadPage({ params }: { params: Promise<{ id: s
             formData.append("file", file);
             formData.append("dataRoomId", unwrappedParams.id);
 
-            const response = await fetch("/api/documents", {
+            // Use Pages Router API for large files (>10MB) - better streaming support
+            const uploadUrl = file.size > 10 * 1024 * 1024 
+                ? "/api/upload" 
+                : "/api/documents";
+
+            const response = await fetch(uploadUrl, {
                 method: "POST",
+                credentials: "include",
                 body: formData,
             });
 

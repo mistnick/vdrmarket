@@ -28,8 +28,29 @@ class EmailService {
   }
 
   private initProvider() {
-    // Priority 1: AWS SES
-    if (process.env.AWS_SES_ACCESS_KEY_ID && process.env.AWS_SES_SECRET_ACCESS_KEY) {
+    // Priority 1: SMTP (recommended for self-hosted)
+    if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+      this.provider = "smtp";
+      const port = parseInt(process.env.SMTP_PORT || "465");
+      const secure = process.env.SMTP_SECURE !== "false" && (process.env.SMTP_SECURE === "true" || port === 465);
+      
+      this.transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: port,
+        secure: secure, // true for 465 (SMTPS), false for 587 (STARTTLS)
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+        tls: {
+          // Do not fail on invalid certs (useful for self-signed)
+          rejectUnauthorized: process.env.SMTP_REJECT_UNAUTHORIZED !== "false",
+        },
+      });
+      console.log(`📧 Email Service initialized with SMTP (${process.env.SMTP_HOST}:${port}, secure: ${secure})`);
+    }
+    // Priority 2: AWS SES
+    else if (process.env.AWS_SES_ACCESS_KEY_ID && process.env.AWS_SES_SECRET_ACCESS_KEY) {
       this.provider = "ses";
       this.sesClient = new SESClient({
         region: process.env.AWS_SES_REGION || "eu-west-1",
@@ -40,25 +61,11 @@ class EmailService {
       });
       console.log(`📧 Email Service initialized with AWS SES (region: ${process.env.AWS_SES_REGION || "eu-west-1"})`);
     }
-    // Priority 2: Resend
+    // Priority 3: Resend
     else if (process.env.RESEND_API_KEY) {
       this.provider = "resend";
       this.resendClient = new Resend(process.env.RESEND_API_KEY);
       console.log("📧 Email Service initialized with Resend");
-    }
-    // Priority 3: SMTP
-    else if (process.env.SMTP_HOST && process.env.SMTP_USER) {
-      this.provider = "smtp";
-      this.transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || "587"),
-        secure: process.env.SMTP_SECURE === "true",
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      });
-      console.log("📧 Email Service initialized with SMTP");
     }
     // Priority 4: SendGrid
     else if (process.env.SENDGRID_API_KEY) {
@@ -68,7 +75,7 @@ class EmailService {
     // Fallback: Mock
     else {
       this.provider = "mock";
-      console.log("📧 Email Service initialized in MOCK mode - configure RESEND_API_KEY, AWS SES or SMTP for production");
+      console.log("📧 Email Service initialized in MOCK mode - configure SMTP_HOST or other providers for production");
     }
   }
 
@@ -252,7 +259,7 @@ class EmailService {
 
       // SMTP via nodemailer
       if (this.provider === "smtp" && this.transporter) {
-        await this.transporter.sendMail({
+        const info = await this.transporter.sendMail({
           from: fromAddress,
           to,
           subject,
@@ -260,7 +267,7 @@ class EmailService {
           text: text || this.stripHtml(html),
           attachments,
         });
-        console.log(`✅ Email sent via SMTP to ${Array.isArray(to) ? to.join(", ") : to}`);
+        console.log(`✅ Email sent via SMTP to ${Array.isArray(to) ? to.join(", ") : to} (MessageId: ${info.messageId})`);
         return true;
       }
 

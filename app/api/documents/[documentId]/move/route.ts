@@ -13,7 +13,18 @@ export async function PATCH(
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { folderId, dataRoomId } = await req.json();
+        const { folderId, dataRoomId, index } = await req.json();
+
+        // Validate index format if provided
+        if (index !== undefined && index !== null) {
+            const indexPattern = /^\d+(\.\d+)*$/;
+            if (typeof index !== "string" || !indexPattern.test(index)) {
+                return NextResponse.json(
+                    { error: "Invalid index format" },
+                    { status: 400 }
+                );
+            }
+        }
 
         // Get document to verify ownership/access via GroupMember (ADMINISTRATOR group type)
         const document = await prisma.document.findFirst({
@@ -81,13 +92,18 @@ export async function PATCH(
         }
 
         // Build update data
-        const updateData: { folderId: string | null; dataRoomId?: string } = {
+        const updateData: { folderId: string | null; dataRoomId?: string; index?: string | null } = {
             folderId: folderId || null,
         };
         
         // dataRoomId is required and cannot be null
         if (dataRoomId) {
             updateData.dataRoomId = dataRoomId;
+        }
+        
+        // Update index if provided
+        if (index !== undefined) {
+            updateData.index = index;
         }
 
         // Update document

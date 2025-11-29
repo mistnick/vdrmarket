@@ -75,7 +75,9 @@ export function ManagePermissionsDialog({
     const fetchUserPermissions = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`/api/users/${userId}/permissions?dataRoomId=${dataRoomId}`);
+            const response = await fetch(`/api/users/${userId}/permissions?dataRoomId=${dataRoomId}`, {
+                credentials: "include"
+            });
             if (response.ok) {
                 const data = await response.json();
                 setSelectedPermissions(new Set(data.permissions.map((p: any) => p.permission)));
@@ -108,6 +110,7 @@ export function ManagePermissionsDialog({
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                credentials: 'include',
                 body: JSON.stringify({
                     dataRoomId,
                     permissions: Array.from(selectedPermissions),

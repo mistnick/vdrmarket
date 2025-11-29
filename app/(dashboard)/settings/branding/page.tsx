@@ -32,7 +32,9 @@ export default function BrandingSettingsPage() {
   const fetchTeamSettings = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/teams/current");
+      const response = await fetch("/api/teams/current", {
+        credentials: "include"
+      });
       if (response.ok) {
         const team = await response.json();
         setFormData({
@@ -72,6 +74,7 @@ export default function BrandingSettingsPage() {
 
       const response = await fetch("/api/teams/branding/logo", {
         method: "POST",
+        credentials: "include",
         body: formDataObj,
       });
 
@@ -99,6 +102,7 @@ export default function BrandingSettingsPage() {
       const response = await fetch("/api/teams/branding", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(formData),
       });
 

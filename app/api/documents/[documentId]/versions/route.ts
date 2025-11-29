@@ -6,6 +6,10 @@ import { createAuditLog } from "@/lib/auth/audit-logger";
 import { validateFile } from "@/lib/security/file-validation";
 import { scanFile } from "@/lib/security/malware-scanner";
 
+// Route segment config for large file uploads
+export const maxDuration = 60; // 60 seconds timeout
+export const dynamic = "force-dynamic";
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ documentId: string }> }

@@ -72,6 +72,7 @@ export function UploadVersionDialog({
             const response = await fetch(`/api/documents/${documentId}/versions`, {
                 method: "POST",
                 body: formData,
+                credentials: "include",
             });
 
             if (!response.ok) {

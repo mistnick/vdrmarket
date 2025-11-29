@@ -62,6 +62,7 @@ export function PermissionMatrix({
                 `/api/datarooms/${dataRoomId}/permissions/${permissionId}`,
                 {
                     method: "DELETE",
+                    credentials: "include",
                 }
             );
 

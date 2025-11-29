@@ -49,7 +49,9 @@ export function DocumentViewerDialog({
         setError(null);
 
         try {
-            const response = await fetch(`/api/documents/${document.id}/view`);
+            const response = await fetch(`/api/documents/${document.id}/view`, {
+                credentials: "include",
+            });
             if (!response.ok) {
                 throw new Error("Failed to get document URL");
             }
@@ -80,7 +82,9 @@ export function DocumentViewerDialog({
         if (!document?.id) return;
 
         try {
-            const response = await fetch(`/api/documents/${document.id}/download`);
+            const response = await fetch(`/api/documents/${document.id}/download`, {
+                credentials: "include",
+            });
             if (!response.ok) throw new Error("Download failed");
 
             const blob = await response.blob();

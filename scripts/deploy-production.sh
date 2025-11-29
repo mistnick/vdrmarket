@@ -2,12 +2,13 @@
 
 # ==============================================================================
 # DataRoom VDR - Production Deployment Script
-# Version: 3.1.0 - GroupType-based Authorization
-# Last Updated: 29 Novembre 2025
+# Version: 3.2.0 - Hierarchical Indexing System
+# Last Updated: 30 Novembre 2025
 # ==============================================================================
 #
 # Architecture: DataRoom > Groups > GroupMembers (no Team entity)
 # Authorization: GroupType-based (ADMINISTRATOR, USER, CUSTOM)
+# New Features: Hierarchical Index System for Documents and Folders
 # 
 # This script handles:
 # - SSL certificate setup with Let's Encrypt
@@ -138,9 +139,10 @@ check_prerequisites() {
 echo -e "${GREEN}"
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║                                                              ║"
-echo "║       🚀 DataRoom VDR - Production Deployment v3.1           ║"
+echo "║       🚀 DataRoom VDR - Production Deployment v3.2           ║"
 echo "║       Architecture: DataRoom > Groups > Members              ║"
 echo "║       Authorization: GroupType-based ACL                     ║"
+echo "║       New: Hierarchical Indexing System                      ║"
 echo "║                                                              ║"
 echo "║       Domain: $DOMAIN                              ║"
 echo "║       Date: $(date '+%Y-%m-%d %H:%M:%S')                      ║"
@@ -403,6 +405,18 @@ else
     else
         log_info "Permission seeding skipped"
     fi
+    
+    # Verify super admin account exists
+    log_info "Verifying super admin account..."
+    SUPER_ADMIN_CHECK=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+    SELECT COUNT(*) FROM users WHERE email = 'info@simplevdr.com' AND \"isSuperAdmin\" = true;
+    ")
+    
+    if [ "$SUPER_ADMIN_CHECK" -eq "1" ]; then
+        log_success "Super admin account verified (info@simplevdr.com)"
+    else
+        log_warning "Super admin account not found - run 'npm run db:seed' manually"
+    fi
 fi
 
 # Create default VDR groups if needed
@@ -438,7 +452,7 @@ echo -e "${CYAN}Service URLs:${NC}"
 echo -e "  🌐 Website:      ${GREEN}https://$DOMAIN${NC}"
 echo -e "  🔒 HTTPS:        ${GREEN}https://$DOMAIN_ALT${NC}"
 echo -e "  🏥 Health Check: ${GREEN}https://$DOMAIN/api/health${NC}"
-echo -e "  🔐 VDR System:   ${GREEN}https://$DOMAIN/data-rooms/[id]/vdr${NC}"
+echo -e "  📁 File Explorer: ${GREEN}https://$DOMAIN/file-explorer${NC}"
 
 echo ""
 echo -e "${CYAN}VDR System Status (GroupType-based Authorization):${NC}"
@@ -447,6 +461,7 @@ echo -e "  ✅ Frontend:     Permission-guarded UI components"
 echo -e "  ✅ Middleware:   Access validation enabled"
 echo -e "  ✅ Email:        Invitation system ready"
 echo -e "  ✅ Permissions:  ADMINISTRATOR/USER/CUSTOM GroupTypes"
+echo -e "  ✅ Indexing:     Hierarchical index system (1.2.3 format)"
 echo -e "  📚 Docs:         /docs/VDR_*.md"
 
 echo ""
@@ -475,6 +490,8 @@ echo ""
 log_success "Deployment script completed at $(date '+%Y-%m-%d %H:%M:%S')"
 echo ""
 echo -e "${YELLOW}⚠️  Important Next Steps:${NC}"
+echo -e "  👑 Super Admin Access: info@simplevdr.com (password in seed script)"
+echo -e "  🔐 Admin Portal: https://$DOMAIN/admin"
 echo -e "  1. ADMINISTRATOR groups have full access (auto-created by seed)"
 echo -e "  2. USER groups have standard permissions"
 echo -e "  3. CUSTOM groups have configurable permission flags"

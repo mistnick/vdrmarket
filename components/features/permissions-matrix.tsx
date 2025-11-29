@@ -91,6 +91,7 @@ export function PermissionsMatrix({
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                credentials: 'include',
                 body: JSON.stringify({
                     email: newEmail,
                     level: newLevel,
@@ -125,6 +126,7 @@ export function PermissionsMatrix({
         try {
             const response = await fetch(`/api/datarooms/${dataRoomId}/permissions/${permissionId}`, {
                 method: 'DELETE',
+                credentials: 'include',
             });
 
             if (!response.ok) {
@@ -149,6 +151,7 @@ export function PermissionsMatrix({
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                credentials: 'include',
                 body: JSON.stringify({ level: newLevel }),
             });
 

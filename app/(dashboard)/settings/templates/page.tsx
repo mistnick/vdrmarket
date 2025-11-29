@@ -115,7 +115,9 @@ export default function NotificationTemplatesPage() {
     const fetchTemplates = async () => {
         try {
             setLoading(true);
-            const response = await fetch("/api/settings/email-templates");
+            const response = await fetch("/api/settings/email-templates", {
+                credentials: "include"
+            });
             if (response.ok) {
                 const result = await response.json();
                 if (result.success && result.data) {
@@ -135,6 +137,7 @@ export default function NotificationTemplatesPage() {
             const response = await fetch("/api/settings/email-templates", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({
                     name: selectedTemplate,
                     subject: editedSubject,

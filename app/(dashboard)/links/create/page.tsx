@@ -49,14 +49,18 @@ export default function CreateLinkPage() {
     const fetchDocuments = async () => {
         try {
             // Get all documents from user's data rooms
-            const response = await fetch("/api/datarooms");
+            const response = await fetch("/api/datarooms", {
+                credentials: "include"
+            });
             const dataRoomsData = await response.json();
 
             if (dataRoomsData.success) {
                 const allDocs: any[] = [];
 
                 for (const dataRoom of dataRoomsData.data) {
-                    const docsResponse = await fetch(`/api/documents?dataRoomId=${dataRoom.id}`);
+                    const docsResponse = await fetch(`/api/documents?dataRoomId=${dataRoom.id}`, {
+                        credentials: "include"
+                    });
                     const docsData = await docsResponse.json();
                     if (docsData.success) {
                         allDocs.push(...docsData.data);
@@ -95,6 +99,7 @@ export default function CreateLinkPage() {
                 headers: {
                     "Content-Type": "application/json",
                 },
+                credentials: "include",
                 body: JSON.stringify({
                     documentId: selectedDocId,
                     name,

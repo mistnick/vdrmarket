@@ -230,7 +230,7 @@ export function DocumentPermissionsManager({
                 ? `/api/vdr/${dataRoomId}/documents/${id}/permissions`
                 : `/api/vdr/${dataRoomId}/folders/${id}/permissions`;
 
-            const response = await fetch(endpoint);
+            const response = await fetch(endpoint, { credentials: "include" });
             if (!response.ok) throw new Error("Failed to load permissions");
 
             const data = await response.json();
@@ -274,6 +274,7 @@ export function DocumentPermissionsManager({
             const response = await fetch(endpoint, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({ groupId, [permission]: value }),
             });
 
@@ -300,6 +301,7 @@ export function DocumentPermissionsManager({
             const response = await fetch(endpoint, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({ groupId, ...permissions }),
             });
 
@@ -327,6 +329,7 @@ export function DocumentPermissionsManager({
             const response = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({
                     groupId,
                     canView: true, // Default permission
@@ -352,7 +355,7 @@ export function DocumentPermissionsManager({
                 ? `/api/vdr/${dataRoomId}/documents/${selectedItem.id}/permissions/${groupId}`
                 : `/api/vdr/${dataRoomId}/folders/${selectedItem.id}/permissions/${groupId}`;
 
-            const response = await fetch(endpoint, { method: "DELETE" });
+            const response = await fetch(endpoint, { method: "DELETE", credentials: "include" });
 
             if (!response.ok) throw new Error("Failed to remove group permission");
 

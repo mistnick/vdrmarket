@@ -1,5 +1,6 @@
 // DataRoom - Prisma Schema
-// Restructured: DataRoom is the main container (no separate Team entity)
+// Multi-Tenant Architecture: Tenants > DataRooms > Groups > Users
+// Version: 4.0.0 - Multi-Tenant Platform
 
 generator client {
   provider = "prisma-client-js"
@@ -7,6 +8,127 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+// ============================================
+// Multi-Tenant: Plans & Tenants
+// ============================================
+
+enum TenantStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum TenantUserRole {
+  TENANT_ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum TenantUserStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+}
+
+model Plan {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  description   String?
+  maxVdr        Int      @default(1)      // -1 = unlimited
+  maxAdminUsers Int      @default(3)      // -1 = unlimited
+  maxStorageMb  Int      @default(1024)   // -1 = unlimited
+  durationDays  Int?                      // null = no expiry
+  priceMonthly  Decimal? @db.Decimal(10, 2)
+  priceYearly   Decimal? @db.Decimal(10, 2)
+  features      Json     @default("{}")   // Feature flags JSON
+  isActive      Boolean  @default(true)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  tenants       Tenant[]
+  
+  @@map("plans")
+}
+
+model Tenant {
+  id            String        @id @default(cuid())
+  name          String
+  slug          String        @unique
+  description   String?
+  logo          String?
+  status        TenantStatus  @default(ACTIVE)
+  planId        String?
+  startDate     DateTime      @default(now())
+  endDate       DateTime?
+  storageUsedMb Int           @default(0)
+  customDomain  String?       @unique
+  settings      Json          @default("{}")
+  deletedAt     DateTime?
+  
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  
+  plan          Plan?         @relation(fields: [planId], references: [id], onDelete: SetNull)
+  tenantUsers   TenantUser[]
+  dataRooms     DataRoom[]
+  auditLogs     TenantAuditLog[]
+  
+  @@index([status])
+  @@index([planId])
+  @@index([deletedAt])
+  @@map("tenants")
+}
+
+model TenantUser {
+  id          String            @id @default(cuid())
+  tenantId    String
+  userId      String
+  role        TenantUserRole    @default(MEMBER)
+  status      TenantUserStatus  @default(ACTIVE)
+  invitedAt   DateTime?
+  invitedById String?
+  joinedAt    DateTime?
+  
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy   User?             @relation("TenantInvitations", fields: [invitedById], references: [id], onDelete: SetNull)
+  
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@index([userId])
+  @@index([status])
+  @@index([role])
+  @@map("tenant_users")
+}
+
+model TenantAuditLog {
+  id           String    @id @default(cuid())
+  tenantId     String?
+  userId       String?
+  action       String
+  resourceType String
+  resourceId   String?
+  metadata     Json?
+  ipAddress    String?
+  userAgent    String?
+  
+  createdAt    DateTime  @default(now())
+  
+  tenant       Tenant?   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  user         User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([tenantId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("tenant_audit_logs")
 }
 
 // ============================================
@@ -21,6 +143,7 @@ model User {
   image         String?
   password      String? // For email/password authentication
   isActive      Boolean   @default(true) // For user activation/deactivation
+  isSuperAdmin  Boolean   @default(false) // Super-admin for back-office
 
   // Password reset
   passwordResetToken  String?   @unique
@@ -63,9 +186,15 @@ model User {
   invitationsCreated UserInvitation[] @relation("InvitationsCreated")
   documentUserPermissions DocumentUserPermission[]
   folderUserPermissions   FolderUserPermission[]
+  
+  // Multi-tenant Relations
+  tenantMemberships TenantUser[]
+  tenantInvitations TenantUser[]       @relation("TenantInvitations")
+  tenantAuditLogs   TenantAuditLog[]
 
   @@index([isActive])
   @@index([status])
+  @@index([isSuperAdmin])
   @@map("users")
 }
 
@@ -140,12 +269,13 @@ model VerificationToken {
 
 model DataRoom {
   id          String   @id @default(cuid())
+  tenantId    String?  // Multi-tenant: belongs to a tenant
   name        String
   slug        String   @unique
   description String?
   logo        String?
   isPublic    Boolean  @default(false)
-  plan        String   @default("free") // free, pro, business, enterprise
+  plan        String   @default("free") // free, pro, business, enterprise (legacy)
   
   // Branding
   brandColor       String?
@@ -168,6 +298,7 @@ model DataRoom {
   updatedAt   DateTime @updatedAt
 
   // Relations
+  tenant       Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   documents    Document[]
   folders      Folder[]
   questions    Question[]
@@ -178,6 +309,7 @@ model DataRoom {
   userInvitations           UserInvitation[]
   dueDiligenceChecklists    DueDiligenceChecklist[]
 
+  @@index([tenantId])
   @@index([archivedAt])
   @@map("data_rooms")
 }
@@ -197,6 +329,9 @@ model Document {
   dataRoomId  String
   ownerId     String
   folderId    String?
+  
+  // Hierarchical index for ordering (e.g., "1.2.3")
+  index       String?
   
   // File Security
   scanStatus String?  @default("pending")
@@ -263,6 +398,9 @@ model Folder {
   ownerId    String
   parentId   String?
   path       String
+  
+  // Hierarchical index for ordering (e.g., "1.2.3")
+  index      String?
   
   deletedAt   DateTime?
   deletedById String?

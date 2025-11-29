@@ -54,7 +54,9 @@ export function GlobalSearch() {
 
             setLoading(true);
             try {
-                const res = await fetch(`/api/search?q=${encodeURIComponent(debouncedQuery)}`);
+                const res = await fetch(`/api/search?q=${encodeURIComponent(debouncedQuery)}`, {
+                    credentials: "include"
+                });
                 if (res.ok) {
                     const data = await res.json();
                     // Transform API response

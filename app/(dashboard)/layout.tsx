@@ -13,7 +13,7 @@ export default async function DashboardLayout({
 }) {
   const session = await getSession();
 
-  if (!session) {
+  if (!session || !session.email) {
     redirect("/auth/login");
   }
 
@@ -23,8 +23,14 @@ export default async function DashboardLayout({
       name: true,
       email: true,
       image: true,
+      isSuperAdmin: true,
     },
   });
+
+  // Super admin cannot access /dashboard - redirect to /admin
+  if (user?.isSuperAdmin) {
+    redirect("/admin");
+  }
 
   return (
     <DashboardClientWrapper>

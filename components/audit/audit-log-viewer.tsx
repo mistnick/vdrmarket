@@ -79,7 +79,9 @@ export function AuditLogViewer() {
             if (actionFilter) params.append("action", actionFilter);
             if (resourceTypeFilter) params.append("resourceType", resourceTypeFilter);
 
-            const response = await fetch(`/api/audit-logs?${params.toString()}`);
+            const response = await fetch(`/api/audit-logs?${params.toString()}`, {
+                credentials: "include"
+            });
             const data = await response.json();
 
             if (!response.ok) {
@@ -110,7 +112,9 @@ export function AuditLogViewer() {
             if (actionFilter) params.append("action", actionFilter);
             if (resourceTypeFilter) params.append("resourceType", resourceTypeFilter);
 
-            const response = await fetch(`/api/audit-logs/export?${params.toString()}`);
+            const response = await fetch(`/api/audit-logs/export?${params.toString()}`, {
+                credentials: "include"
+            });
 
             if (!response.ok) {
                 throw new Error("Export failed");

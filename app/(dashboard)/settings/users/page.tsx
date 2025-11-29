@@ -74,7 +74,9 @@ export default function UsersSettingsPage() {
     useEffect(() => {
         async function fetchDataRooms() {
             try {
-                const response = await fetch("/api/datarooms");
+                const response = await fetch("/api/datarooms", {
+                    credentials: "include"
+                });
                 if (response.ok) {
                     const result = await response.json();
                     setDataRooms(result.data || []);
@@ -100,7 +102,9 @@ export default function UsersSettingsPage() {
 
         try {
             setLoading(true);
-            const response = await fetch(`/api/datarooms/\${selectedDataRoom}/members`);
+            const response = await fetch(`/api/datarooms/\${selectedDataRoom}/members`, {
+                credentials: "include"
+            });
             if (response.ok) {
                 const data = await response.json();
                 setMembers(data.data || []);
@@ -122,6 +126,7 @@ export default function UsersSettingsPage() {
                 headers: {
                     "Content-Type": "application/json",
                 },
+                credentials: "include",
                 body: JSON.stringify({
                     role: newRole,
                 }),
@@ -151,6 +156,7 @@ export default function UsersSettingsPage() {
             try {
                 const response = await fetch(`/api/datarooms/\${selectedDataRoom}/members/\${member.id}`, {
                     method: 'DELETE',
+                    credentials: 'include',
                 });
 
                 if (response.ok) {

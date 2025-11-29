@@ -106,6 +106,7 @@ export default function BillingSettingsPage() {
       const response = await fetch("/api/billing/upgrade", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ plan }),
       });
 

@@ -70,7 +70,9 @@ export function QACategoryManager({ dataRoomId }: QACategoryManagerProps) {
         setError("");
 
         try {
-            const response = await fetch(`/api/datarooms/${dataRoomId}/qa-categories`);
+            const response = await fetch(`/api/datarooms/${dataRoomId}/qa-categories`, {
+                credentials: "include"
+            });
             const data = await response.json();
 
             if (!response.ok) {
@@ -100,6 +102,7 @@ export function QACategoryManager({ dataRoomId }: QACategoryManagerProps) {
             const response = await fetch(url, {
                 method,
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify(formData),
             });
 
@@ -127,7 +130,7 @@ export function QACategoryManager({ dataRoomId }: QACategoryManagerProps) {
         try {
             const response = await fetch(
                 `/api/datarooms/${dataRoomId}/qa-categories/${categoryId}`,
-                { method: "DELETE" }
+                { method: "DELETE", credentials: "include" }
             );
 
             if (!response.ok) {
