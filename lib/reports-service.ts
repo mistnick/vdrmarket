@@ -12,12 +12,9 @@ export interface ReportSummary {
     }[];
 }
 
-export async function generateVerificationReport(teamId: string): Promise<ReportSummary> {
-    // Mocking teamId filter if not strictly enforced in audit logs yet
-    // In a real scenario, we would filter by teamId
-
+export async function generateVerificationReport(dataRoomId: string): Promise<ReportSummary> {
     const auditLogs = await prisma.auditLog.findMany({
-        where: { teamId },
+        where: { dataRoomId },
         orderBy: { createdAt: "desc" },
         take: 100,
         include: { user: true },
@@ -26,7 +23,7 @@ export async function generateVerificationReport(teamId: string): Promise<Report
     const views = await prisma.view.findMany({
         where: {
             document: {
-                teamId: teamId
+                dataRoomId
             }
         },
         include: { document: true },

@@ -55,18 +55,23 @@ export async function POST(request: NextRequest) {
             }
         })
 
-        // Create default personal workspace/team
-        const teamSlug = `${name.toLowerCase().replace(/\s+/g, "-")}-${user.id.slice(0, 8)}`;
-        
-        const team = await prisma.team.create({
+        // Create default personal data room with admin group
+        const dataRoomSlug = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${user.id.slice(0, 8)}`;
+        const dataRoom = await prisma.dataRoom.create({
             data: {
-                name: `${name}'s Workspace`,
-                slug: teamSlug,
-                plan: "free",
-                members: {
+                name: `${name}'s Data Room`,
+                slug: dataRoomSlug,
+                groups: {
                     create: {
-                        userId: user.id,
-                        role: "OWNER",
+                        name: "Administrators",
+                        type: "ADMINISTRATOR",
+                        description: "Data room administrators",
+                        members: {
+                            create: {
+                                userId: user.id,
+                                role: "owner",
+                            },
+                        },
                     },
                 },
             },
@@ -76,12 +81,13 @@ export async function POST(request: NextRequest) {
         await prisma.auditLog.create({
             data: {
                 userId: user.id,
-                action: "USER_SIGNUP",
-                resourceType: "USER",
+                action: "login", // Using valid AuditAction type
+                resourceType: "user",
                 resourceId: user.id,
+                dataRoomId: dataRoom.id,
                 metadata: {
                     method: "credentials",
-                    teamId: team.id,
+                    signupEvent: true,
                 },
             },
         });

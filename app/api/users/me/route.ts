@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
                         documents: true,
                         folders: true,
                         links: true,
-                        teams: true,
+                        groupMemberships: true,
                     },
                 },
             },

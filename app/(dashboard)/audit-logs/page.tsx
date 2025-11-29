@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Download, Search, Filter, Calendar } from "lucide-react";
 import { format } from "date-fns";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 
 interface AuditLog {
   id: string;
@@ -38,7 +39,7 @@ interface AuditLog {
   metadata?: any;
 }
 
-export default function AuditLogsPage() {
+function AuditLogsContent() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -293,5 +294,16 @@ export default function AuditLogsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function AuditLogsPage() {
+  return (
+    <PermissionGuard
+      requiredPermission={(p) => p.canViewAudit || p.isAdministrator}
+      fallbackMessage="Non hai i permessi per visualizzare i log di audit. Questa funzionalità è riservata agli amministratori."
+    >
+      <AuditLogsContent />
+    </PermissionGuard>
   );
 }

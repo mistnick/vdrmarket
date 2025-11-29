@@ -115,8 +115,8 @@ export async function POST(request: NextRequest) {
       where: { ownerId: user.id },
     });
 
-    // 6. Remove team memberships (but don't delete teams)
-    await prisma.teamMember.deleteMany({
+    // 6. Remove group memberships (but don't delete groups)
+    await prisma.groupMember.deleteMany({
       where: { userId: user.id },
     });
 

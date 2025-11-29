@@ -27,7 +27,7 @@ export async function GET(request: Request) {
             where: { email: session.email },
         });
 
-        // Use PostgreSQL Full Text Search
+        // Use PostgreSQL Full Text Search with DataRoom-based access control
         // We use raw query because Prisma doesn't fully support TSVECTOR/TSQUERY yet
         const searchResults = await prisma.$queryRaw`
       SELECT 
@@ -41,10 +41,11 @@ export async function GET(request: Request) {
         dr.name as "dataRoomName",
         ts_rank(d.search_vector, plainto_tsquery('english', ${query})) as rank
       FROM "documents" d
-      JOIN "datarooms" dr ON d."dataRoomId" = dr.id
-      JOIN "TeamMember" tm ON dr."teamId" = tm."teamId"
+      JOIN "data_rooms" dr ON d."dataRoomId" = dr.id
+      JOIN "groups" g ON g."dataRoomId" = dr.id
+      JOIN "group_members" gm ON gm."groupId" = g.id
       WHERE 
-        tm."userId" = ${user?.id} AND
+        gm."userId" = ${user?.id} AND
         (
           d.search_vector @@ plainto_tsquery('english', ${query}) OR
           d.name ILIKE ${`%${query}%`}

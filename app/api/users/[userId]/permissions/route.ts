@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
+import { getUserPermissions } from "@/lib/auth/permissions";
 
 /**
  * GET /api/users/[userId]/permissions
- * Get user permissions for a team (simplified - returns role-based permissions)
+ * Get user permissions for a data room (based on GroupType membership)
  */
 export async function GET(
     request: NextRequest,
@@ -12,34 +13,24 @@ export async function GET(
 ) {
     try {
         const session = await getSession();
-        if (!session?.email) {
+        if (!session?.userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const { userId } = await params;
         const { searchParams } = new URL(request.url);
-        const teamId = searchParams.get("teamId");
+        const dataRoomId = searchParams.get("dataRoomId");
 
-        if (!teamId) {
-            return NextResponse.json({ error: "Team ID required" }, { status: 400 });
+        if (!dataRoomId) {
+            return NextResponse.json({ error: "DataRoom ID required" }, { status: 400 });
         }
 
-        // Get user's role in the team
-        const teamMember = await prisma.teamMember.findUnique({
-            where: {
-                teamId_userId: {
-                    teamId,
-                    userId,
-                },
-            },
-        });
-
-        // Return role-based permissions
-        const rolePermissions = getRolePermissions(teamMember?.role || "viewer");
+        // Get user's permissions based on GroupType membership
+        const permissions = await getUserPermissions(userId, dataRoomId);
 
         return NextResponse.json({
             success: true,
-            permissions: rolePermissions.map(p => ({ permission: p })),
+            permissions: permissions.map(p => ({ permission: p })),
         });
     } catch (error) {
         console.error("Error fetching user permissions:", error);
@@ -48,37 +39,6 @@ export async function GET(
             { status: 500 }
         );
     }
-}
-
-function getRolePermissions(role: string): string[] {
-    const permissionMap: Record<string, string[]> = {
-        owner: [
-            "documents.create", "documents.edit", "documents.delete", "documents.view",
-            "links.create", "links.manage",
-            "datarooms.create", "datarooms.manage",
-            "teams.invite_members", "teams.manage_roles", "teams.view_members",
-            "analytics.view",
-        ],
-        admin: [
-            "documents.create", "documents.edit", "documents.delete", "documents.view",
-            "links.create", "links.manage",
-            "datarooms.create", "datarooms.manage",
-            "teams.invite_members", "teams.view_members",
-            "analytics.view",
-        ],
-        member: [
-            "documents.create", "documents.view",
-            "links.create",
-            "datarooms.create",
-            "teams.view_members",
-        ],
-        viewer: [
-            "documents.view",
-            "teams.view_members",
-        ],
-    };
-
-    return permissionMap[role] || permissionMap.viewer;
 }
 
 /**
@@ -91,40 +51,33 @@ export async function PUT(
 ) {
     try {
         const session = await getSession();
-        if (!session?.email) {
+        if (!session?.userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const { userId } = await params;
         const body = await request.json();
-        const { teamId, permissions } = body;
+        const { dataRoomId, permissions } = body;
 
-        if (!teamId || !Array.isArray(permissions)) {
+        if (!dataRoomId || !Array.isArray(permissions)) {
             return NextResponse.json(
                 { error: "Invalid request data" },
                 { status: 400 }
             );
         }
 
-        // Check if requester has permission to manage roles
-        const requester = await prisma.user.findUnique({
-            where: { email: session.email },
-        });
-
-        if (!requester) {
-            return NextResponse.json({ error: "User not found" }, { status: 404 });
-        }
-
-        const requesterMember = await prisma.teamMember.findUnique({
+        // Check if requester has permission to manage roles (ADMINISTRATOR group type)
+        const requesterMember = await prisma.groupMember.findFirst({
             where: {
-                teamId_userId: {
-                    teamId,
-                    userId: requester.id,
+                userId: session.userId,
+                group: {
+                    dataRoomId,
+                    type: "ADMINISTRATOR",
                 },
             },
         });
 
-        if (!requesterMember || !["owner", "admin"].includes(requesterMember.role)) {
+        if (!requesterMember) {
             return NextResponse.json(
                 { error: "Insufficient permissions" },
                 { status: 403 }

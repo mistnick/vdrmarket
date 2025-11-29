@@ -9,44 +9,36 @@ export async function PATCH(
     try {
         const { folderId } = await params;
         const session = await getSession();
-        if (!session?.email) {
+        if (!session?.userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const { parentFolderId } = await req.json();
 
-        // Get user
-        const user = await prisma.user.findUnique({
-            where: { email: session.email },
-        });
-
-        if (!user) {
-            return NextResponse.json({ error: "User not found" }, { status: 404 });
-        }
-
-        // Get folder to verify ownership/access
-        const folder = await prisma.folder.findUnique({
-            where: { id: folderId },
-            include: {
-                team: {
-                    include: {
-                        members: true,
+        // Get folder to verify ownership/access via GroupMember (ADMINISTRATOR group type)
+        const folder = await prisma.folder.findFirst({
+            where: {
+                id: folderId,
+                dataRoom: {
+                    groups: {
+                        some: {
+                            type: "ADMINISTRATOR",
+                            members: {
+                                some: {
+                                    userId: session.userId,
+                                },
+                            },
+                        },
                     },
                 },
+            },
+            include: {
+                dataRoom: true,
             },
         });
 
         if (!folder) {
-            return NextResponse.json({ error: "Folder not found" }, { status: 404 });
-        }
-
-        // Check if user is member of the folder's team
-        const isMember = folder.team?.members.some(
-            (member) => member.userId === user.id
-        );
-
-        if (!isMember) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+            return NextResponse.json({ error: "Folder not found or access denied" }, { status: 404 });
         }
 
         // Prevent moving folder into itself
@@ -67,12 +59,12 @@ export async function PATCH(
                 );
             }
 
-            // Verify target folder belongs to the same team
+            // Verify target folder belongs to the same data room
             const targetFolder = await prisma.folder.findUnique({
                 where: { id: parentFolderId },
             });
 
-            if (!targetFolder || targetFolder.teamId !== folder.teamId) {
+            if (!targetFolder || targetFolder.dataRoomId !== folder.dataRoomId) {
                 return NextResponse.json(
                     { error: "Invalid target folder" },
                     { status: 400 }
@@ -89,8 +81,8 @@ export async function PATCH(
         // Create audit log
         await prisma.auditLog.create({
             data: {
-                userId: user.id,
-                teamId: folder.teamId,
+                userId: session.userId,
+                dataRoomId: folder.dataRoomId,
                 action: "FOLDER_MOVED",
                 resourceType: "FOLDER",
                 resourceId: folderId,

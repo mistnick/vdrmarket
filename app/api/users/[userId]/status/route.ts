@@ -33,10 +33,11 @@ export async function PATCH(
     const targetUser = await prisma.user.findUnique({
       where: { id: userId },
       include: {
-        teams: {
+        groupMemberships: {
           include: {
-            team: {
+            group: {
               include: {
+                dataRoom: true,
                 members: {
                   include: { user: true },
                 },
@@ -51,11 +52,11 @@ export async function PATCH(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Check if requester has permission (must be owner or admin of at least one shared team)
+    // Check if requester has permission (must be owner or admin of at least one shared dataRoom)
     const currentUser = await prisma.user.findUnique({
       where: { email: session.email },
       include: {
-        teams: true,
+        groupMemberships: true,
       },
     });
 
@@ -71,26 +72,56 @@ export async function PATCH(
       );
     }
 
-    // Check if requester has admin/owner role in any team with the target user
+    // Check if requester has admin/owner role in any dataRoom with the target user
+    // Or if requester is in an ADMINISTRATOR type group for the same dataRoom
     let hasPermission = false;
-    let teamContext: { teamId: string; teamName: string } | null = null;
+    let dataRoomContext: { dataRoomId: string; dataRoomName: string } | null = null;
 
-    for (const targetMembership of targetUser.teams) {
-      const team = targetMembership.team;
-      const requesterInTeam = team.members.find(
+    for (const targetMembership of targetUser.groupMemberships) {
+      const group = targetMembership.group;
+      const dataRoom = group.dataRoom;
+      
+      // Check if requester is in the same group with owner/admin role
+      const requesterInGroup = group.members.find(
         (m) => m.user.email === session.email
       );
 
-      if (requesterInTeam && ["owner", "admin"].includes(requesterInTeam.role)) {
-        // Cannot deactivate team owner
+      if (requesterInGroup && ["owner", "admin"].includes(requesterInGroup.role)) {
+        // Cannot deactivate group owner
         if (targetMembership.role === "owner") {
           return NextResponse.json(
-            { error: "Cannot deactivate team owner" },
+            { error: "Cannot deactivate group owner" },
             { status: 400 }
           );
         }
         hasPermission = true;
-        teamContext = { teamId: team.id, teamName: team.name };
+        dataRoomContext = { dataRoomId: dataRoom.id, dataRoomName: dataRoom.name };
+        break;
+      }
+
+      // Also check if requester is in an ADMINISTRATOR group for this dataRoom
+      const adminGroup = await prisma.group.findFirst({
+        where: {
+          dataRoomId: dataRoom.id,
+          type: "ADMINISTRATOR",
+          members: {
+            some: {
+              userId: currentUser.id,
+            },
+          },
+        },
+      });
+
+      if (adminGroup) {
+        // Cannot deactivate group owner
+        if (targetMembership.role === "owner") {
+          return NextResponse.json(
+            { error: "Cannot deactivate group owner" },
+            { status: 400 }
+          );
+        }
+        hasPermission = true;
+        dataRoomContext = { dataRoomId: dataRoom.id, dataRoomName: dataRoom.name };
         break;
       }
     }
@@ -119,7 +150,7 @@ export async function PATCH(
     await createAuditLog({
       action: isActive ? "USER_ACTIVATED" : "USER_DEACTIVATED",
       userId: currentUser.id,
-      teamId: teamContext?.teamId || null,
+      dataRoomId: dataRoomContext?.dataRoomId || null,
       resourceType: "USER",
       resourceId: userId,
       metadata: {
@@ -127,7 +158,7 @@ export async function PATCH(
         targetUserName: targetUser.name,
         isActive,
         performedBy: session.email,
-        teamContext: teamContext?.teamName,
+        dataRoomContext: dataRoomContext?.dataRoomName,
       },
       ipAddress:
         request.headers.get("x-forwarded-for") ||

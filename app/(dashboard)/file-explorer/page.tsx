@@ -65,11 +65,13 @@ import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/shared/page-header";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { toast } from "sonner";
+import { RenameDialog } from "@/components/documents/rename-dialog";
 import { VersionHistoryDialog } from "@/components/documents/version-history-dialog";
 import { UploadVersionDialog } from "@/components/documents/upload-version-dialog";
 import { DocumentViewerDialog } from "@/components/documents/document-viewer-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useDataRoomContext } from "@/components/providers/dataroom-provider";
 
 // Types
 interface FileItem {
@@ -91,7 +93,6 @@ interface ApiDataRoom {
   id: string;
   name: string;
   description: string | null;
-  teamId: string;
   isPublic: boolean;
   createdAt: string;
   _count: {
@@ -104,7 +105,6 @@ interface ApiDataRoom {
 interface ApiFolder {
   id: string;
   name: string;
-  teamId: string;
   parentId: string | null;
   dataRoomId: string | null;
   path: string;
@@ -122,7 +122,6 @@ interface ApiDocument {
   file: string;
   fileType: string;
   fileSize: number;
-  teamId: string;
   folderId: string | null;
   dataRoomId: string | null;
   createdAt: string;
@@ -342,6 +341,7 @@ function ContentTreeRow({
   onVersionHistory,
   onUploadVersion,
   onViewDocument,
+  onRename,
 }: {
   item: FileItem;
   level?: number;
@@ -358,6 +358,7 @@ function ContentTreeRow({
   onVersionHistory: (item: FileItem) => void;
   onUploadVersion: (item: FileItem) => void;
   onViewDocument: (item: FileItem) => void;
+  onRename: (item: FileItem) => void;
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const isExpanded = expandedIds.has(item.id);
@@ -509,6 +510,9 @@ function ContentTreeRow({
             )}
           </div>
         </TableCell>
+        <TableCell className="text-muted-foreground text-xs">
+          {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}
+        </TableCell>
         <TableCell className="text-muted-foreground font-mono text-xs">
           {isFile
             ? formatFileSize(item.size)
@@ -603,7 +607,10 @@ function ContentTreeRow({
                       <Share2 className="mr-2 h-4 w-4" />
                       Share
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      onRename(item);
+                    }}>
                       <Pencil className="mr-2 h-4 w-4" />
                       Rename
                     </DropdownMenuItem>
@@ -631,7 +638,10 @@ function ContentTreeRow({
                       <Download className="mr-2 h-4 w-4" />
                       Download as ZIP
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      onRename(item);
+                    }}>
                       <Pencil className="mr-2 h-4 w-4" />
                       Rename
                     </DropdownMenuItem>
@@ -672,6 +682,7 @@ function ContentTreeRow({
             onVersionHistory={onVersionHistory}
             onUploadVersion={onUploadVersion}
             onViewDocument={onViewDocument}
+            onRename={onRename}
           />
         ))}
     </>
@@ -680,18 +691,18 @@ function ContentTreeRow({
 
 export default function FileExplorerPage() {
   const { authFetch } = useAuthFetch();
+  const { setCurrentDataRoom } = useDataRoomContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
 
   // State
-  const [teamId, setTeamId] = useState<string>("");
   const [dataRooms, setDataRooms] = useState<FileItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<FileItem | null>(null);
   const [navExpandedIds, setNavExpandedIds] = useState<Set<string>>(new Set());
   const [contentExpandedIds, setContentExpandedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortColumn, setSortColumn] = useState<"name" | "size">("name");
+  const [sortColumn, setSortColumn] = useState<"name" | "size" | "date">("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -713,6 +724,10 @@ export default function FileExplorerPage() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Rename state
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [itemToRename, setItemToRename] = useState<FileItem | null>(null);
+
   // Version history states
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
   const [uploadVersionOpen, setUploadVersionOpen] = useState(false);
@@ -721,20 +736,6 @@ export default function FileExplorerPage() {
   // Document viewer states
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerDocument, setViewerDocument] = useState<FileItem | null>(null);
-
-  // Fetch team ID
-  useEffect(() => {
-    async function fetchTeam() {
-      const { data, error } = await authFetch<{ id: string }>("/api/teams/current");
-      if (data?.id) {
-        setTeamId(data.id);
-      } else if (error) {
-        console.error("Error fetching team:", error);
-        setError("Impossibile recuperare il team");
-      }
-    }
-    fetchTeam();
-  }, [authFetch]);
 
   // Reset drag state when leaving window or on dragend
   useEffect(() => {
@@ -760,14 +761,12 @@ export default function FileExplorerPage() {
 
   // Fetch data rooms and build tree
   const fetchData = useCallback(async () => {
-    if (!teamId) return;
-
     setLoading(true);
     setError(null);
 
     try {
       const { data: drResponse, error: drError } = await authFetch<{ data: ApiDataRoom[] }>(
-        `/api/datarooms?teamId=${teamId}`
+        "/api/datarooms"
       );
 
       if (drError) {
@@ -779,11 +778,11 @@ export default function FileExplorerPage() {
 
       for (const dr of dataRoomsData) {
         const { data: foldersResponse } = await authFetch<{ data: ApiFolder[] }>(
-          `/api/folders?teamId=${teamId}`
+          `/api/folders?dataRoomId=${dr.id}`
         );
 
         const { data: docsResponse } = await authFetch<{ data: ApiDocument[] }>(
-          `/api/documents?teamId=${teamId}`
+          `/api/documents?dataRoomId=${dr.id}`
         );
 
         const allFolders = foldersResponse?.data || [];
@@ -853,6 +852,8 @@ export default function FileExplorerPage() {
 
       if (tree.length > 0) {
         setNavExpandedIds(new Set([tree[0].id]));
+        // Sincronizza il primo dataroom nel context
+        setCurrentDataRoom(tree[0].id, tree[0].name);
       }
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -860,7 +861,7 @@ export default function FileExplorerPage() {
     } finally {
       setLoading(false);
     }
-  }, [teamId, authFetch]);
+  }, [authFetch, setCurrentDataRoom]);
 
   useEffect(() => {
     fetchData();
@@ -928,6 +929,10 @@ export default function FileExplorerPage() {
         comparison = a.name.localeCompare(b.name);
       } else if (sortColumn === "size") {
         comparison = (a.size || 0) - (b.size || 0);
+      } else if (sortColumn === "date") {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        comparison = dateA - dateB;
       }
 
       return sortDirection === "asc" ? comparison : -comparison;
@@ -960,7 +965,7 @@ export default function FileExplorerPage() {
     });
   }, []);
 
-  const handleSort = (column: "name" | "size") => {
+  const handleSort = (column: "name" | "size" | "date") => {
     if (sortColumn === column) {
       setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
@@ -973,6 +978,15 @@ export default function FileExplorerPage() {
     setSelectedItem(item);
     setSearchQuery("");
     setNavExpandedIds((prev) => new Set([...prev, item.id]));
+    
+    // Sincronizza il dataroom nel context per i permessi
+    if (item.type === "dataroom") {
+      setCurrentDataRoom(item.id, item.name);
+    } else if (item.dataRoomId) {
+      // Per folder/file, usa il dataRoomId associato
+      const dataRoom = dataRooms.find(dr => dr.id === item.dataRoomId);
+      setCurrentDataRoom(item.dataRoomId, dataRoom?.name ?? null);
+    }
   };
 
   // Create folder helper
@@ -983,7 +997,6 @@ export default function FileExplorerPage() {
   ): Promise<{ id: string } | null> => {
     const payload: Record<string, string> = {
       name,
-      teamId,
       dataRoomId,
     };
     if (parentId) {
@@ -1013,7 +1026,6 @@ export default function FileExplorerPage() {
   ): Promise<boolean> => {
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("teamId", teamId);
     formData.append("name", file.name);
     formData.append("dataRoomId", dataRoomId);
     if (folderId) {
@@ -1120,10 +1132,6 @@ export default function FileExplorerPage() {
   // Handle file upload
   const handleUpload = async (files: FileList | null, isFolder: boolean = false) => {
     if (!files || files.length === 0) return;
-    if (!teamId) {
-      toast.error("Team non trovato");
-      return;
-    }
 
     if (!selectedItem) {
       toast.error("Seleziona prima una Data Room o cartella");
@@ -1306,7 +1314,7 @@ export default function FileExplorerPage() {
 
   // Create folder handler
   const handleCreateFolder = async () => {
-    if (!newFolderName.trim() || !teamId) return;
+    if (!newFolderName.trim()) return;
 
     if (!selectedItem) {
       toast.error("Seleziona prima una Data Room o cartella");
@@ -1578,6 +1586,38 @@ export default function FileExplorerPage() {
       toast.error(err instanceof Error ? err.message : "Errore durante l'eliminazione");
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // Rename handlers
+  const handleRenameClick = (item: FileItem) => {
+    setItemToRename(item);
+    setRenameDialogOpen(true);
+  };
+
+  const handleRenameSubmit = async (newName: string) => {
+    if (!itemToRename) return;
+
+    try {
+      const endpoint = itemToRename.type === "file"
+        ? `/api/documents/${itemToRename.id}`
+        : `/api/folders/${itemToRename.id}`;
+
+      const { error } = await authFetch(endpoint, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName }),
+      });
+
+      if (error) throw new Error(error);
+
+      toast.success("Rinominato con successo");
+      setRenameDialogOpen(false);
+      setItemToRename(null);
+      fetchData();
+    } catch (err) {
+      console.error("Rename error:", err);
+      toast.error(err instanceof Error ? err.message : "Errore durante la rinomina");
     }
   };
 
@@ -1917,24 +1957,33 @@ export default function FileExplorerPage() {
                         onCheckedChange={handleSelectAll}
                       />
                     </TableHead>
-                    <TableHead className="w-[35%]">
-                      <button
-                        className="flex items-center gap-1 hover:text-foreground transition-colors"
-                        onClick={() => handleSort("name")}
-                      >
-                        Name
-                        <ArrowUpDown className="h-3 w-3" />
-                      </button>
+                    <TableHead
+                      className="w-[35%] cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleSort("name")}
+                    >
+                      Nome
+                      {sortColumn === "name" && (
+                        <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                      )}
                     </TableHead>
                     <TableHead>Labels</TableHead>
-                    <TableHead>
-                      <button
-                        className="flex items-center gap-1 hover:text-foreground transition-colors"
-                        onClick={() => handleSort("size")}
-                      >
-                        Size
-                        <ArrowUpDown className="h-3 w-3" />
-                      </button>
+                    <TableHead
+                      className="w-[150px] cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleSort("date")}
+                    >
+                      Data
+                      {sortColumn === "date" && (
+                        <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                      )}
+                    </TableHead>
+                    <TableHead
+                      className="w-[100px] cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleSort("size")}
+                    >
+                      Dimensione
+                      {sortColumn === "size" && (
+                        <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                      )}
                     </TableHead>
                     <TableHead>Notes</TableHead>
                     <TableHead className="w-24"></TableHead>
@@ -1984,6 +2033,7 @@ export default function FileExplorerPage() {
                           setViewerDocument(item);
                           setViewerOpen(true);
                         }}
+                        onRename={handleRenameClick}
                       />
                     ))
                   )}
@@ -2193,6 +2243,19 @@ export default function FileExplorerPage() {
           onSuccess={() => {
             fetchData();
           }}
+        />
+      )}
+
+      {/* Rename Dialog */}
+      {itemToRename && (
+        <RenameDialog
+          open={renameDialogOpen}
+          onOpenChange={(open) => {
+            setRenameDialogOpen(open);
+            if (!open) setItemToRename(null);
+          }}
+          initialName={itemToRename.name}
+          onSubmit={handleRenameSubmit}
         />
       )}
 

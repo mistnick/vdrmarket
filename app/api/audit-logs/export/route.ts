@@ -14,9 +14,9 @@ export async function GET(request: NextRequest) {
     const user = await prisma.user.findUnique({
       where: { email: session.email },
       include: {
-        teams: {
+        groupMemberships: {
           include: {
-            team: true,
+            group: true,
           },
         },
       },
@@ -37,8 +37,8 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const where: any = {
-      teamId: {
-        in: user.teams.map((tm) => tm.teamId),
+      dataRoomId: {
+        in: user.groupMemberships.map((gm) => gm.group.dataRoomId),
       },
     };
 
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
             email: true,
           },
         },
-        team: {
+        dataRoom: {
           select: {
             name: true,
           },
@@ -87,18 +87,18 @@ export async function GET(request: NextRequest) {
     } else {
       // CSV export
       const csvHeader =
-        "Timestamp,User,Email,Team,Action,Resource Type,Resource ID,IP Address,Metadata\n";
+        "Timestamp,User,Email,DataRoom,Action,Resource Type,Resource ID,IP Address,Metadata\n";
 
       const csvRows = logs.map((log) => {
         const timestamp = new Date(log.createdAt).toISOString();
         const userName = log.user?.name || "Unknown";
         const userEmail = log.user?.email || "Unknown";
-        const teamName = log.team?.name || "Unknown";
+        const dataRoomName = log.dataRoom?.name || "Unknown";
         const metadata = log.metadata
           ? JSON.stringify(log.metadata).replace(/"/g, '""')
           : "";
 
-        return `"${timestamp}","${userName}","${userEmail}","${teamName}","${log.action}","${log.resourceType}","${log.resourceId}","${log.ipAddress || ""}","${metadata}"`;
+        return `"${timestamp}","${userName}","${userEmail}","${dataRoomName}","${log.action}","${log.resourceType}","${log.resourceId}","${log.ipAddress || ""}","${metadata}"`;
       }).join("\n");
 
       const csvContent = csvHeader + csvRows;

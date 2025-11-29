@@ -42,17 +42,25 @@ export async function GET(
         const document = await prisma.document.findUnique({
             where: { id: documentId },
             include: {
-                team: {
+                dataRoom: {
                     include: {
-                        members: {
-                            where: { userId: user.id },
+                        groups: {
+                            include: {
+                                members: {
+                                    where: { userId: user.id },
+                                },
+                            },
                         },
                     },
                 },
             },
         });
 
-        if (!document || document.team.members.length === 0) {
+        const hasAccessGet = document?.dataRoom.groups.some(
+            (g) => g.members.length > 0
+        );
+
+        if (!document || !hasAccessGet) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
@@ -130,17 +138,25 @@ export async function POST(
         const document = await prisma.document.findUnique({
             where: { id: documentId },
             include: {
-                team: {
+                dataRoom: {
                     include: {
-                        members: {
-                            where: { userId: user.id },
+                        groups: {
+                            include: {
+                                members: {
+                                    where: { userId: user.id },
+                                },
+                            },
                         },
                     },
                 },
             },
         });
 
-        if (!document || document.team.members.length === 0) {
+        const hasAccess = document?.dataRoom.groups.some(
+            (g) => g.members.length > 0
+        );
+
+        if (!document || !hasAccess) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
@@ -158,15 +174,17 @@ export async function POST(
         // Extract @mentions
         const mentionedUsernames = extractMentions(content);
 
-        // Find mentioned users in the same team
+        // Find mentioned users in the same dataRoom
         const mentionedUsers = await prisma.user.findMany({
             where: {
                 email: {
                     in: mentionedUsernames.map((username) => `${username}@*`), // Simplified
                 },
-                teams: {
+                groupMemberships: {
                     some: {
-                        teamId: document.teamId,
+                        group: {
+                            dataRoomId: document.dataRoomId,
+                        },
                     },
                 },
             },

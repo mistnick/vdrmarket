@@ -6,13 +6,13 @@ export type AuditAction =
     | "login" | "logout" | "password_change" | "security_settings"
 
 export type AuditResourceType =
-    | "document" | "folder" | "link" | "dataroom" | "team" | "user" | "system" | "permission"
+    | "document" | "folder" | "link" | "dataroom" | "user" | "system" | "permission" | "group"
 
 export interface AuditEvent {
     action: AuditAction
     resourceType: AuditResourceType
     resourceId?: string
-    teamId?: string
+    dataRoomId?: string
     userId?: string
     metadata?: Record<string, any>
     ipAddress?: string
@@ -41,13 +41,13 @@ export class AuditService {
                 action: event.action,
                 resourceType: event.resourceType,
                 resourceId: event.resourceId,
-                teamId: event.teamId,
+                dataRoomId: event.dataRoomId,
                 userId: event.userId,
                 metadata: maskedMetadata,
                 ipAddress: event.ipAddress,
                 userAgent: event.userAgent,
                 previousHash,
-                createdAt: new Date() // We use current time for hash calculation
+                createdAt: new Date()
             }
 
             // Calculate hash
@@ -61,16 +61,8 @@ export class AuditService {
                 }
             })
 
-            // Trigger monitoring checks asynchronously
-            // We import dynamically to avoid circular dependencies if any, 
-            // though typically MonitoringService depends on AuditService, not vice-versa.
-            // For now, we'll just call it if we implement it in a separate file.
-            // await MonitoringService.check(event)
-
         } catch (error) {
             console.error("Failed to create audit log:", error)
-            // In a high-security context, we might want to throw here to fail the transaction
-            // but for now we log to console to avoid breaking user flow if logging fails.
         }
     }
 

@@ -1,472 +1,292 @@
-# DataRoom - Project Status & Roadmap
+# DataRoom VDR - Project Status & Architecture
 
-**Last Updated**: 2025-11-21  
-**Current Phase**: Phase 1 - Core Infrastructure (IN PROGRESS)  
-**Project Status**: 🟢 Active Development - Authentication Refactored
+**Last Updated**: 2025-11-29  
+**Version**: 3.0.0 - DataRoom-based Architecture  
+**Status**: 🟢 Active Development - Architecture Restructured
 
 ---
 
 ## 📊 Project Overview
 
-DataRoom is a Virtual Data Room (VDR) platform for secure document sharing with advanced tracking and analytics. This document tracks the current implementation status and roadmap.
+DataRoom VDR is a Virtual Data Room platform for secure document sharing with advanced tracking, analytics, and granular permission control. The system has been restructured to use a DataRoom-centric architecture.
+
+### Architecture Summary
+
+```
+DataRoom (root entity)
+├── Groups (ADMINISTRATOR, USER, CUSTOM)
+│   └── GroupMembers (users with roles: owner, admin, member, viewer)
+├── Documents
+│   ├── DocumentGroupPermission (per-group permissions)
+│   └── DocumentUserPermission (per-user overrides)
+├── Folders
+│   ├── FolderGroupPermission (per-group permissions)
+│   └── FolderUserPermission (per-user overrides)
+└── UserInvitation (pending invitations)
+```
 
 ### Quick Stats
 - **Start Date**: November 2025
-- **Estimated Completion**: April 2026 (20 weeks)
-- **Current Progress**: 15% implementation (Phase 1 in progress)
-- **Team Size**: 1-2 developers
-- **Repository**: [mistnick/dataroom](file:///Users/f.gallo/Documents/Copilot/dataroom)
+- **Current Phase**: Phase 2 - Core VDR Features
+- **Repository**: [mistnick/vdrmarket](https://github.com/mistnick/vdrmarket)
+- **Branch**: main
 
 ---
 
-## ✅ Completed Items
+## ✅ Completed Features
 
-### Planning & Documentation
-- ✅ Project structure created
-- ✅ Database schema designed (379 lines Prisma schema)
-- ✅ Technical architecture documented (4 docs, 93KB)
-- ✅ Storage abstraction layer designed
-- ✅ Implementation plan created (20 weeks, 10 phases)
-- ✅ Task breakdown completed
-- ✅ **NEW:** Custom authentication system documented
+### 🏗️ Core Infrastructure
+- ✅ Next.js 15 with App Router
+- ✅ TypeScript (strict mode)
+- ✅ Prisma ORM with PostgreSQL
+- ✅ Docker configuration (dev + production)
+- ✅ Custom session-based authentication
+- ✅ Storage abstraction (S3/Azure)
 
-### Infrastructure Setup
-- ✅ Next.js 16 project initialized
-- ✅ TypeScript configured (strict mode)
-- ✅ Prisma ORM setup
-- ✅ Docker configuration created
-- ✅ Environment templates (.env.example, .env.docker)
-- ✅ Makefile for automation
+### 🔐 Authentication System
+- ✅ Custom session management (database-backed)
+- ✅ Login/Logout APIs
+- ✅ Password security (bcrypt)
+- ✅ Session cookies (httpOnly, secure, 7 days)
+- ✅ Middleware protection
 
-### Code Foundation
-- ✅ Storage provider interface defined
-- ✅ S3 storage provider implemented
-- ✅ Azure Blob storage provider implemented
-- ✅ Component structure planned
+### 📧 Email Service
+- ✅ Resend integration
+- ✅ Email templates (invitations, notifications)
+- ✅ Document sharing notifications
 
-### ⭐ Authentication System (COMPLETED - 21 Nov 2025)
-- ✅ **Complete NextAuth Removal**: Replaced with custom authentication
-- ✅ **Custom Session Management**: Database-backed sessions with Prisma
-- ✅ **Login API**: POST /api/auth/login with email/password
-- ✅ **Logout API**: POST/GET /api/auth/logout
-- ✅ **Session Cookie**: dataroom-session (httpOnly, secure, 7 days)
-- ✅ **Password Security**: bcrypt hashing (cost factor 10)
-- ✅ **Middleware Protection**: Custom getSession() validation
-- ✅ **File Migration**: 53+ files updated from NextAuth structure
-- ✅ **Build Success**: 45 routes compiled successfully
-- ✅ **Bug Fix**: Dynamic route conflicts resolved (removed duplicate [id]/[slug] folders)
+### 🗄️ DataRoom-based Architecture (NEW)
+- ✅ DataRoom as root entity (replaces Team)
+- ✅ Groups with types: ADMINISTRATOR, USER, CUSTOM
+- ✅ GroupMembers with roles: owner, admin, member, viewer
+- ✅ Document/Folder Group Permissions
+- ✅ Document/Folder User Permissions (overrides)
+- ✅ User Invitations system
+- ✅ Permission seeding script
 
-### ⭐ Email Service (COMPLETED - 21 Nov 2025)
-- ✅ **Resend Integration**: Email sending library installed and configured
-- ✅ **Service Layer**: `/lib/email/service.ts` with core functions
-- ✅ **Email Templates**: Professional HTML + Text templates
-  - Team invitation emails
-  - Document sharing notifications
-  - Password reset emails
-  - Email verification emails
-- ✅ **Document Sharing Integration**: Automatic emails when creating share links
-- ✅ **Error Handling**: Graceful failures, logging, fallback for missing API key
-- ✅ **Configuration**: Environment variables (RESEND_API_KEY, EMAIL_FROM)
-- ✅ **Documentation**: Complete setup guide (`docs/EMAIL-SETUP.md`)
+### 📁 Document Management
+- ✅ Document CRUD operations
+- ✅ Folder management
+- ✅ Version control
+- ✅ Metadata management
+- ✅ Tags system
+- ✅ Move/copy operations
 
-### Database & Storage
-- ✅ **Signup API**: POST /api/auth/signup (ready)
-- ✅ **Session Functions**: createSession, getSession, getCurrentUser, deleteSession
-- ✅ **Middleware**: Custom session-based route protection
-- ✅ **Security**: bcrypt passwords, HTTP-only cookies, 7-day sessions
-- ✅ **Audit Logging**: USER_LOGIN and USER_LOGOUT events
-- ✅ **Documentation**: Complete AUTH-SYSTEM.md created
-- ✅ **Production Build**: ✅ Success - 44 routes compiled
-- ✅ **Docker Rebuild**: In progress
+### 🔗 Link Sharing
+- ✅ Shareable links with slugs
+- ✅ Password protection
+- ✅ Email verification
+- ✅ Expiration dates
+- ✅ Download options control
+
+### 📊 Analytics
+- ✅ View tracking
+- ✅ Device/geo detection
+- ✅ Audit logging
 
 ---
 
-## 🚧 Recent Changes (21 Nov 2025)
+## 🎯 Permission Model
 
-### 🔄 Major Refactoring: Authentication System
+### Group Permissions
+Each group can have specific permissions on documents/folders:
 
-**Problem**: NextAuth CSRF token validation failing in production/Docker environment causing login failures.
+| Permission | Description |
+|------------|-------------|
+| `canFence` | Access restriction |
+| `canView` | View document |
+| `canDownloadEncrypted` | Download encrypted version |
+| `canDownloadPdf` | Download as PDF |
+| `canDownloadOriginal` | Download original file |
+| `canUpload` | Upload new versions |
+| `canManage` | Full management access |
 
-**Solution**: Complete removal of NextAuth and implementation of custom authentication system.
+### Default Permission Presets
 
-**Changes Made**:
-1. **Session Management** (`lib/auth/session.ts`):
-   - Custom database-backed sessions
-   - Session cookie: `dataroom-session` (HTTP-only, secure, sameSite: lax)
-   - 7-day session duration
-   - Secure 256-bit random tokens
+**ADMINISTRATOR Group:**
+- All permissions enabled
 
-2. **API Routes**:
-   - `/api/auth/login` (POST): Email/password authentication
-   - `/api/auth/logout` (POST/GET): Session termination
-   - Removed: OAuth callback routes, NextAuth catch-all route
+**USER Group:**
+- canView, canDownloadEncrypted, canDownloadPdf
 
-3. **UI Updates**:
-   - Simplified login page (no OAuth providers)
-   - Direct fetch() API calls
-   - Hard redirects after login
+**CUSTOM Group:**
+- canView only (configure as needed)
 
-4. **Codebase Updates** (53+ files):
-   - Changed all `auth()` calls → `getSession()`
-   - Updated session structure: `session.user.email` → `session.email`
-   - Updated imports: `@/lib/auth` → `@/lib/auth/session`
-   - Fixed TypeScript types across all protected routes
+### Role-based Permissions (GroupMember roles)
 
-5. **Files Backed Up**:
-   - `app/auth/login/page.tsx.backup` (old NextAuth version)
-   - `app/api/auth/callback/route.ts.backup` (old OAuth callback)
-
-**Status**: ✅ Build successful, Docker rebuild in progress
-
-### 🐛 Bug Fix: Application Startup Error (24 Nov 2025)
-**Problem**: 500 Internal Server Error on startup due to missing `SessionProvider`.
-**Solution**: Added `SessionProvider` wrapper in `app/layout.tsx`.
-**Status**: ✅ Fixed and Verified
+| Role | Permissions |
+|------|-------------|
+| `owner` | Full access to everything |
+| `admin` | Full access except delete DataRoom |
+| `member` | View, create, edit documents |
+| `viewer` | View only |
 
 ---
 
-## 🚧 Current Phase: Pre-Implementation
+## 🐳 Docker Configuration
 
-### Immediate Next Steps (This Week)
+### Development
+```bash
+docker-compose up -d
+```
+Services: postgres, minio, redis, app
 
-1. **Environment Setup**
-   - [ ] Install dependencies (`npm install`)
-   - [ ] Setup local PostgreSQL or use Docker
-   - [ ] Configure environment variables
-   - [ ] Run Prisma migrations
-   - [ ] Test database connection
+### Production
+```bash
+docker-compose -f docker-compose.production.yml up -d
+```
+Services: postgres, redis, app, nginx, certbot
 
-2. **Development Environment**
-   - [ ] Setup MinIO for local S3 testing
-   - [ ] Verify Docker Compose works
-   - [ ] Configure VS Code / IDE
-   - [ ] Setup ESLint and Prettier
+### Key Commands
+```bash
+# Database
+npm run db:seed              # Seed users and data
+npm run db:seed:permissions  # Seed groups and permissions
 
-3. **Initial Authentication (Phase 1 Start)**
-   - [ ] Configure NextAuth.js
-   - [ ] Create login/signup pages
-   - [ ] Test OAuth providers
-   - [ ] Implement protected routes
+# Deploy
+./scripts/deploy-production.sh
 
----
-
-## 📅 Roadmap Timeline
-
-### ✅ Week 0 (Current) - Planning Complete
-- [x] Project analysis
-- [x] Documentation review
-- [x] Implementation plan created
-- [x] Task breakdown completed
-
-### 🎯 Week 1-2: Phase 1 - Core Infrastructure
-**Goal**: Working authentication and storage
-
-- [ ] NextAuth.js configuration
-- [ ] Login/Signup UI
-- [ ] OAuth providers (Google, Microsoft, Authentik)
-- [ ] Protected route middleware
-- [ ] Storage provider testing
-- [ ] Dashboard layout
-
-**Deliverables**:
-- Users can signup/login
-- OAuth works
-- File upload to S3/Azure works
-- Dashboard accessible
+# Logs
+docker-compose logs -f app
+```
 
 ---
 
-### Week 3-4: Phase 2 - Document Management
-**Goal**: Full document upload and management
+## 📁 Project Structure
 
-- [ ] Document upload API
-- [ ] Drag-and-drop UI
-- [ ] Document list/detail pages
-- [ ] Folder creation
-- [ ] Document organization
-- [ ] Delete functionality
+```
+/app
+  /api
+    /datarooms/[id]/...     # DataRoom CRUD
+    /documents/[id]/...     # Document operations
+    /folders/[id]/...       # Folder operations
+    /groups/...             # Group management
+    /users/...              # User management
+  /(dashboard)/...          # Dashboard pages
+  /auth/...                 # Auth pages
+  /view/[slug]              # Public viewer
 
-**Deliverables**:
-- Users can upload documents
-- Folders work
-- Documents can be organized
+/components
+  /datarooms/               # DataRoom components
+  /documents/               # Document components
+  /folders/                 # Folder components
+  /vdr/                     # VDR-specific components
 
----
+/lib
+  /auth/
+    session.ts              # Session management
+    permissions.ts          # Permission utilities
+  /db/
+    prisma.ts               # Prisma client
 
-### Week 5-6: Phase 3 - Link Sharing
-**Goal**: Secure shareable links
-
-- [ ] Link generation API
-- [ ] Link configuration UI
-- [ ] Password protection
-- [ ] Email verification
-- [ ] Public viewer page
-- [ ] Access control
-
-**Deliverables**:
-- Links can be created
-- Password/email protection works
-- Public viewer functional
-
----
-
-### Week 7-8: Phase 4 - Analytics
-**Goal**: Comprehensive tracking
-
-- [ ] View tracking system
-- [ ] Device/geo detection
-- [ ] Analytics dashboard
-- [ ] Charts (recharts)
-- [ ] Real-time notifications
-
-**Deliverables**:
-- Views tracked automatically
-- Dashboard shows metrics
-- Notifications sent
+/prisma
+  schema.prisma             # Database schema
+  seed.ts                   # Main seed script
+  seed-permissions.ts       # Permission seeding
+```
 
 ---
 
-### Week 9-10: Phase 5 - Virtual Data Room
-**Goal**: Full VDR functionality
+## 🔧 Environment Variables
 
-- [ ] Data room creation
-- [ ] Folder structure
-- [ ] Permission system
-- [ ] Viewer access control
-- [ ] Data room viewer
+### Required
+```env
+DATABASE_URL=postgresql://...
+NEXTAUTH_SECRET=...
+AUTH_SECRET=...
+```
 
-**Deliverables**:
-- Data rooms work
-- Permissions enforce correctly
-- Viewers see permitted content
+### Storage (S3/MinIO)
+```env
+STORAGE_PROVIDER=s3
+AWS_REGION=...
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_S3_BUCKET=...
+AWS_ENDPOINT=...  # For MinIO
+```
 
----
-
-### Week 11-12: Phase 6 - Team Collaboration
-**Goal**: Multi-user teams
-
-- [ ] Team creation/management
-- [ ] Member invitations
-- [ ] Role-based access (RBAC)
-- [ ] Team settings UI
-- [ ] Team branding
-
-**Deliverables**:
-- Teams functional
-- RBAC working
-- Members can collaborate
+### Email (Optional)
+```env
+RESEND_API_KEY=...
+EMAIL_FROM=...
+```
 
 ---
 
-### Week 13: Phase 7 - Audit & Compliance
-**Goal**: Complete audit trail
+## 📅 Recent Changes
 
-- [ ] Audit logging system
-- [ ] Audit log viewer
-- [ ] GDPR data export
-- [ ] Account deletion
-- [ ] Compliance features
+### 2025-11-29: Architecture Restructure v3.0.0
+- ❌ Removed Team entity
+- ✅ DataRoom as root container
+- ✅ Groups with types (ADMINISTRATOR, USER, CUSTOM)
+- ✅ GroupMembers with roles
+- ✅ Granular document/folder permissions
+- ✅ Updated all API routes (~20+ files)
+- ✅ Permission seeding script
+- ✅ Docker configuration updated
+- ✅ Deployment script updated
 
-**Deliverables**:
-- All actions logged
-- Audit log searchable
-- GDPR compliant
-
----
-
-### Week 14-16: Phase 8 - Advanced Features
-**Goal**: Premium functionality
-
-- [ ] Document versioning
-- [ ] Dynamic watermarking
-- [ ] Custom branding
-- [ ] Performance optimization
-- [ ] Redis caching
-
-**Deliverables**:
-- Versioning works
-- Watermarks apply
-- Performance improved
+### 2025-11-21: Authentication Refactor
+- ✅ Removed NextAuth
+- ✅ Custom session management
+- ✅ Simplified login flow
 
 ---
 
-### Week 17-18: Phase 9 - Testing & QA
-**Goal**: Production-ready quality
+## 🚀 Quick Start
 
-- [ ] Unit tests (70%+ coverage)
-- [ ] Integration tests
-- [ ] E2E tests
-- [ ] Security audit
-- [ ] Performance testing
+### 1. Clone and Install
+```bash
+git clone https://github.com/mistnick/vdrmarket.git
+cd vdrmarket
+npm install
+```
 
-**Deliverables**:
-- Test coverage >70%
-- Security verified
-- Performance benchmarks met
+### 2. Setup Database
+```bash
+docker-compose up -d postgres redis minio
+cp .env.example .env
+# Edit .env with your settings
+npm run db:push
+npm run db:seed
+npm run db:seed:permissions
+```
 
----
+### 3. Run Development
+```bash
+npm run dev
+```
 
-### Week 19-20: Phase 10 - Deployment
-**Goal**: Production deployment
-
-- [ ] CI/CD pipeline (GitHub Actions)
-- [ ] Staging environment
-- [ ] Production deployment
-- [ ] Monitoring setup
-- [ ] Documentation complete
-
-**Deliverables**:
-- Production live
-- CI/CD working
-- Monitoring active
-
----
-
-## 🎯 Success Criteria
-
-### Phase 1 Success (Week 2)
-- ✅ 100% of users can signup/login
-- ✅ OAuth providers work
-- ✅ Files upload successfully
-- ✅ No critical bugs
-
-### MVP Success (Week 6)
-- ✅ Core features working (auth, upload, sharing)
-- ✅ Public links functional
-- ✅ Basic tracking works
-- ✅ Mobile responsive
-
-### Production Ready (Week 20)
-- ✅ All phases complete
-- ✅ Test coverage >70%
-- ✅ Security audit passed
-- ✅ Performance: LCP <2s, API <500ms
-- ✅ Documentation complete
-
----
-
-## 📈 Progress Tracking
-
-### Overall Progress: 5%
-
-- [x] Planning: 100%
-- [ ] Infrastructure: 10% (Docker setup only)
-- [ ] Authentication: 0%
-- [ ] Document Management: 0%
-- [ ] Link Sharing: 0%
-- [ ] Analytics: 0%
-- [ ] Data Rooms: 0%
-- [ ] Teams: 0%
-- [ ] Testing: 0%
-- [ ] Deployment: 0%
-
----
-
-## 🔴 Blockers & Risks
-
-### Current Blockers
-- None (ready to start implementation)
-
-### Potential Risks
-
-| Risk | Severity | Mitigation |
-|------|----------|------------|
-| OAuth provider config complexity | Medium | Use Authentik as fallback |
-| Storage provider issues | Low | Both S3 and Azure implemented |
-| Performance at scale | Medium | Plan optimization in Phase 8 |
-| Timeline slippage | Medium | Weekly checkpoints, flexible scope |
-
----
-
-## 📝 Technical Decisions Log
-
-### Confirmed Decisions
-- ✅ Next.js 16 with App Router
-- ✅ PostgreSQL with Prisma ORM
-- ✅ NextAuth.js v5 for authentication
-- ✅ Shadcn UI for components
-- ✅ Docker for deployment
-- ✅ Multi-provider storage (S3 + Azure)
-
-### Pending Decisions
-- ⏳ OAuth provider priority (Authentik vs Google vs Microsoft)
-- ⏳ Redis for caching (Phase 1 or Phase 8?)
-- ⏳ Email provider (Resend vs AWS SES)
-- ⏳ CI/CD platform (GitHub Actions confirmed, but config pending)
-- ⏳ Production hosting (VPS vs AWS ECS vs other)
-
----
-
-## 📞 Weekly Checkpoints
-
-### Week 0 (Current): Planning ✅
-- [x] Project analyzed
-- [x] Task breakdown created
-- [x] Implementation plan documented
-- **Next**: Environment setup
-
-### Week 1: TBD
-- [ ] Environment setup complete
-- [ ] Phase 1 started
-- [ ] First commits pushed
-- **Next**: Authentication working
+### 4. Access
+- App: http://localhost:3000
+- MinIO Console: http://localhost:9101
 
 ---
 
 ## 📚 Documentation Index
 
-### Planning Documents
-- [task.md](file:///Users/f.gallo/.gemini/antigravity/brain/44d14bd6-771f-4fdd-b0cb-354fadde24ca/task.md) - Detailed task checklist
-- [implementation_plan.md](file:///Users/f.gallo/.gemini/antigravity/brain/44d14bd6-771f-4fdd-b0cb-354fadde24ca/implementation_plan.md) - Technical implementation plan
-- This document - Project status tracker
-
-### Technical Documentation
-- [01-ANALISI-PAPERMARK.md](file:///Users/f.gallo/Documents/Copilot/dataroom/docs/01-ANALISI-PAPERMARK.md) - Platform analysis
-- [02-REQUISITI-FUNZIONALI.md](file:///Users/f.gallo/Documents/Copilot/dataroom/docs/02-REQUISITI-FUNZIONALI.md) - Requirements
-- [03-ARCHITETTURA-TECNICA.md](file:///Users/f.gallo/Documents/Copilot/dataroom/docs/03-ARCHITETTURA-TECNICA.md) - Architecture
-- [04-STRUTTURA-PROGETTO.md](file:///Users/f.gallo/Documents/Copilot/dataroom/docs/04-STRUTTURA-PROGETTO.md) - Project structure
-
-### Code Documentation
-- [README.md](file:///Users/f.gallo/Documents/Copilot/dataroom/README.md) - Main README
-- [prisma/schema.prisma](file:///Users/f.gallo/Documents/Copilot/dataroom/prisma/schema.prisma) - Database schema
+| Document | Description |
+|----------|-------------|
+| [VDR_README.md](./VDR_README.md) | VDR feature overview |
+| [VDR_API.md](./VDR_API.md) | API documentation |
+| [VDR_ADMIN_GUIDE.md](./VDR_ADMIN_GUIDE.md) | Admin guide |
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | Deployment guide |
+| [AUTH-SYSTEM.md](./AUTH-SYSTEM.md) | Auth documentation |
+| [DATABASE-SETUP.md](./DATABASE-SETUP.md) | Database setup |
 
 ---
 
-## 🚀 Quick Start (For New Developers)
+## 🎯 Next Steps
 
-### 1. Environment Setup
-```bash
-# Clone and install
-cd /Users/f.gallo/Documents/Copilot/dataroom
-npm install
-
-# Setup environment
-cp .env.example .env
-# Edit .env with your credentials
-
-# Start database
-docker-compose up postgres -d
-
-# Run migrations
-npx prisma migrate dev
-npx prisma generate
-
-# Start dev server
-npm run dev
-```
-
-### 2. Read Documentation
-1. Start with [README.md](file:///Users/f.gallo/Documents/Copilot/dataroom/README.md)
-2. Review [implementation_plan.md](file:///Users/f.gallo/.gemini/antigravity/brain/44d14bd6-771f-4fdd-b0cb-354fadde24ca/implementation_plan.md)
-3. Check current [task.md](file:///Users/f.gallo/.gemini/antigravity/brain/44d14bd6-771f-4fdd-b0cb-354fadde24ca/task.md)
-
-### 3. Start Contributing
-- Check task.md for available tasks
-- Follow implementation plan phase-by-phase
-- Update task.md as you complete items
+1. **UI Updates** - Update frontend for DataRoom-based architecture
+2. **Permission UI** - Document/Folder permission management interface
+3. **Group Management** - UI for creating and managing groups
+4. **User Invitations** - Complete invitation workflow UI
+5. **Testing** - E2E tests for new architecture
 
 ---
 
-**Last Updated**: 2025-11-20 by AI Agent  
-**Next Review**: Week 1 checkpoint  
-**Status**: 🟢 On track
+**Status**: 🟢 Build Passing  
+**Last Build**: 2025-11-29  
+**Docker**: Ready

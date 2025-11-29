@@ -28,7 +28,7 @@ interface ManagePermissionsDialogProps {
     onOpenChange: (open: boolean) => void;
     userId: string;
     userName: string;
-    teamId: string;
+    dataRoomId: string;
 }
 
 const AVAILABLE_PERMISSIONS: Permission[] = [
@@ -46,10 +46,10 @@ const AVAILABLE_PERMISSIONS: Permission[] = [
     { id: 'datarooms.create', name: 'Create Data Rooms', description: 'Create new data rooms', category: 'Data Rooms' },
     { id: 'datarooms.manage', name: 'Manage Data Rooms', description: 'Edit and delete data rooms', category: 'Data Rooms' },
     
-    // Team
-    { id: 'teams.invite_members', name: 'Invite Members', description: 'Send team invitations', category: 'Team' },
-    { id: 'teams.manage_roles', name: 'Manage Roles', description: 'Change member roles', category: 'Team' },
-    { id: 'teams.view_members', name: 'View Members', description: 'See team member list', category: 'Team' },
+    // Members
+    { id: 'members.invite', name: 'Invite Members', description: 'Send data room invitations', category: 'Members' },
+    { id: 'members.manage_roles', name: 'Manage Roles', description: 'Change member roles', category: 'Members' },
+    { id: 'members.view', name: 'View Members', description: 'See data room member list', category: 'Members' },
     
     // Analytics
     { id: 'analytics.view', name: 'View Analytics', description: 'Access analytics and insights', category: 'Analytics' },
@@ -60,22 +60,22 @@ export function ManagePermissionsDialog({
     onOpenChange,
     userId,
     userName,
-    teamId,
+    dataRoomId,
 }: ManagePermissionsDialogProps) {
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set());
 
     useEffect(() => {
-        if (open && userId && teamId) {
+        if (open && userId && dataRoomId) {
             fetchUserPermissions();
         }
-    }, [open, userId, teamId]);
+    }, [open, userId, dataRoomId]);
 
     const fetchUserPermissions = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`/api/users/${userId}/permissions?teamId=${teamId}`);
+            const response = await fetch(`/api/users/${userId}/permissions?dataRoomId=${dataRoomId}`);
             if (response.ok) {
                 const data = await response.json();
                 setSelectedPermissions(new Set(data.permissions.map((p: any) => p.permission)));
@@ -109,7 +109,7 @@ export function ManagePermissionsDialog({
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    teamId,
+                    dataRoomId,
                     permissions: Array.from(selectedPermissions),
                 }),
             });

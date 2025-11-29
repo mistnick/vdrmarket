@@ -15,16 +15,23 @@ export default async function ReportsPage() {
     const session = await auth();
     if (!session?.user?.id) return <div>Unauthorized</div>;
 
-    // Get user's team (first one for now)
-    const teamMember = await prisma.teamMember.findFirst({
+    // Get user's first data room through GroupMember
+    const groupMember = await prisma.groupMember.findFirst({
         where: { userId: session.user.id },
+        include: {
+            group: {
+                include: {
+                    dataRoom: true,
+                },
+            },
+        },
     });
 
-    if (!teamMember) {
-        return <div className="p-8">You need to be part of a team to view reports.</div>;
+    if (!groupMember?.group?.dataRoom) {
+        return <div className="p-8">You need to be part of a data room to view reports.</div>;
     }
 
-    const report = await generateVerificationReport(teamMember.teamId);
+    const report = await generateVerificationReport(groupMember.group.dataRoomId);
 
     return (
         <div className="flex-1 space-y-4 p-8 pt-6">

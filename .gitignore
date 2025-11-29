@@ -20,6 +20,9 @@
 # production
 /build
 
+# docker volumes
+/volumes/
+
 # misc
 .DS_Store
 *.pem

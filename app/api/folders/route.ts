@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 
-// GET /api/folders - Get folders for a team
+// GET /api/folders - Get folders for a data room
 export async function GET(request: Request) {
   try {
     const session = await getSession();
@@ -14,12 +14,12 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const teamId = searchParams.get("teamId");
+    const dataRoomId = searchParams.get("dataRoomId");
     const parentId = searchParams.get("parentId");
 
-    if (!teamId) {
+    if (!dataRoomId) {
       return NextResponse.json(
-        { success: false, error: "teamId is required" },
+        { success: false, error: "dataRoomId is required" },
         { status: 400 }
       );
     }
@@ -28,24 +28,33 @@ export async function GET(request: Request) {
       where: { email: session.email },
     });
 
-    // Check team membership
-    const teamMember = await prisma.teamMember.findFirst({
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "User not found" },
+        { status: 404 }
+      );
+    }
+
+    // Check data room membership
+    const membership = await prisma.groupMember.findFirst({
       where: {
-        teamId,
-        userId: user?.id,
+        userId: user.id,
+        group: {
+          dataRoomId,
+        },
       },
     });
 
-    if (!teamMember) {
+    if (!membership) {
       return NextResponse.json(
-        { success: false, error: "Not a member of this team" },
+        { success: false, error: "Not a member of this data room" },
         { status: 403 }
       );
     }
 
     const folders = await prisma.folder.findMany({
       where: {
-        teamId,
+        dataRoomId,
         parentId: parentId || null,
       },
       include: {
@@ -87,11 +96,11 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, teamId, parentId, dataRoomId } = body;
+    const { name, dataRoomId, parentId } = body;
 
-    if (!name || !teamId) {
+    if (!name || !dataRoomId) {
       return NextResponse.json(
-        { success: false, error: "name and teamId are required" },
+        { success: false, error: "name and dataRoomId are required" },
         { status: 400 }
       );
     }
@@ -100,17 +109,26 @@ export async function POST(request: Request) {
       where: { email: session.email },
     });
 
-    // Check team membership
-    const teamMember = await prisma.teamMember.findFirst({
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "User not found" },
+        { status: 404 }
+      );
+    }
+
+    // Check data room membership
+    const membership = await prisma.groupMember.findFirst({
       where: {
-        teamId,
-        userId: user?.id,
+        userId: user.id,
+        group: {
+          dataRoomId,
+        },
       },
     });
 
-    if (!teamMember) {
+    if (!membership) {
       return NextResponse.json(
-        { success: false, error: "Not a member of this team" },
+        { success: false, error: "Not a member of this data room" },
         { status: 403 }
       );
     }
@@ -136,10 +154,9 @@ export async function POST(request: Request) {
     const folder = await prisma.folder.create({
       data: {
         name,
-        teamId,
-        ownerId: user!.id,
+        dataRoomId,
+        ownerId: user.id,
         parentId: parentId || null,
-        dataRoomId: dataRoomId || null,
         path,
       },
       include: {
@@ -151,8 +168,8 @@ export async function POST(request: Request) {
     // Log audit event
     await prisma.auditLog.create({
       data: {
-        teamId,
-        userId: user!.id,
+        dataRoomId,
+        userId: user.id,
         action: "created",
         resourceType: "folder",
         resourceId: folder.id,

@@ -1,3 +1,18 @@
+# ==============================================================================
+# DataRoom VDR - Production Docker Compose
+# Version: 3.1.0 - GroupType-based Authorization
+# Last Updated: 29 Novembre 2025
+# ==============================================================================
+#
+# Architecture: DataRoom > Groups > GroupMembers (no Team entity)
+# Authorization: GroupType-based (ADMINISTRATOR, USER, CUSTOM)
+# Permission Model: DocumentGroupPermission, FolderGroupPermission
+#
+# Usage:
+#   docker-compose -f docker-compose.production.yml up -d
+#
+# ==============================================================================
+
 services:
   # PostgreSQL Database
   postgres:

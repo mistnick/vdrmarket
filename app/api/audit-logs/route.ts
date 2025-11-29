@@ -14,9 +14,9 @@ export async function GET(request: NextRequest) {
     const user = await prisma.user.findUnique({
       where: { email: session.email },
       include: {
-        teams: {
+        groupMemberships: {
           include: {
-            team: true,
+            group: true,
           },
         },
       },
@@ -39,8 +39,8 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const where: any = {
-      teamId: {
-        in: user.teams.map((tm: { teamId: string }) => tm.teamId),
+      dataRoomId: {
+        in: user.groupMemberships.map((gm: { group: { dataRoomId: string } }) => gm.group.dataRoomId),
       },
     };
 
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
             email: true,
           },
         },
-        team: {
+        dataRoom: {
           select: {
             id: true,
             name: true,

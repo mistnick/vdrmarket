@@ -25,21 +25,17 @@ export async function GET(
             where: { email: session.email },
         });
 
-        // Check access to data room
-        const dataRoom = await prisma.dataRoom.findFirst({
+        // Check access to data room via GroupMember
+        const memberAccess = await prisma.groupMember.findFirst({
             where: {
-                id,
-                team: {
-                    members: {
-                        some: {
-                            userId: user?.id,
-                        },
-                    },
+                userId: user?.id,
+                group: {
+                    dataRoomId: id,
                 },
             },
         });
 
-        if (!dataRoom) {
+        if (!memberAccess) {
             return NextResponse.json(
                 { success: false, error: "Data room not found or access denied" },
                 { status: 404 }

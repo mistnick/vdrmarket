@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 interface AuditLogParams {
   action: string;
   userId: string | null;
-  teamId: string | null;
+  dataRoomId: string | null;
   resourceType: string;
   resourceId: string;
   metadata?: Record<string, any>;
@@ -17,7 +17,7 @@ export async function createAuditLog(params: AuditLogParams) {
       data: {
         action: params.action,
         userId: params.userId || undefined,
-        teamId: params.teamId || undefined,
+        dataRoomId: params.dataRoomId || undefined,
         resourceType: params.resourceType,
         resourceId: params.resourceId,
         metadata: params.metadata || undefined,

@@ -7,7 +7,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { getStorageProvider } from "@/lib/storage";
-import { nanoid } from "nanoid";
 
 export async function GET(
   request: NextRequest,
@@ -24,7 +23,7 @@ export async function GET(
 
     const { documentId, versionId } = await params;
 
-    // Verify user has access to document
+    // Verify user has access to document via GroupMember
     const document = await prisma.document.findFirst({
       where: {
         id: documentId,
@@ -32,10 +31,12 @@ export async function GET(
           { ownerId: session.userId },
           {
             dataRoom: {
-              team: {
-                members: {
-                  some: {
-                    userId: session.userId,
+              groups: {
+                some: {
+                  members: {
+                    some: {
+                      userId: session.userId,
+                    },
                   },
                 },
               },
@@ -74,9 +75,8 @@ export async function GET(
     // Create audit log
     await prisma.auditLog.create({
       data: {
-        id: nanoid(),
         userId: session.userId,
-        teamId: document.teamId,
+        dataRoomId: document.dataRoomId,
         action: "DOCUMENT_VERSION_DOWNLOAD",
         resourceType: "document",
         resourceId: documentId,

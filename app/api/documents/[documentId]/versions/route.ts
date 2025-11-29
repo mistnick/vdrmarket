@@ -13,37 +13,37 @@ export async function GET(
   try {
     const session = await getSession();
 
-    if (!session) {
+    if (!session?.userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { documentId } = await params;
 
-    // Get document to check access
-    const document = await prisma.document.findUnique({
-      where: { id: documentId },
-      include: {
-        team: {
-          include: {
-            members: {
-              where: {
-                user: {
-                  email: session.email,
+    // Get document to check access via GroupMember
+    const document = await prisma.document.findFirst({
+      where: {
+        id: documentId,
+        OR: [
+          { ownerId: session.userId },
+          {
+            dataRoom: {
+              groups: {
+                some: {
+                  members: {
+                    some: {
+                      userId: session.userId,
+                    },
+                  },
                 },
               },
             },
           },
-        },
+        ],
       },
     });
 
     if (!document) {
-      return NextResponse.json({ error: "Document not found" }, { status: 404 });
-    }
-
-    // Check if user has access to this document's team
-    if (document.team.members.length === 0) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Document not found or access denied" }, { status: 404 });
     }
 
     // Fetch all versions
@@ -83,43 +83,41 @@ export async function POST(
   try {
     const session = await getSession();
 
-    if (!session) {
+    if (!session?.userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { documentId } = await params;
 
-    // Get user
-    const user = await prisma.user.findUnique({
-      where: { email: session.email },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    // Get document to check access
-    const document = await prisma.document.findUnique({
-      where: { id: documentId },
-      include: {
-        team: {
-          include: {
-            members: {
-              where: {
-                userId: user.id,
+    // Get document to check access via GroupMember with edit permissions (ADMINISTRATOR group type)
+    const document = await prisma.document.findFirst({
+      where: {
+        id: documentId,
+        OR: [
+          { ownerId: session.userId },
+          {
+            dataRoom: {
+              groups: {
+                some: {
+                  type: "ADMINISTRATOR",
+                  members: {
+                    some: {
+                      userId: session.userId,
+                    },
+                  },
+                },
               },
             },
           },
-        },
+        ],
+      },
+      include: {
+        dataRoom: true,
       },
     });
 
     if (!document) {
-      return NextResponse.json({ error: "Document not found" }, { status: 404 });
-    }
-
-    if (document.team.members.length === 0) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Document not found or access denied" }, { status: 404 });
     }
 
     // Parse form data
@@ -135,20 +133,20 @@ export async function POST(
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Get team for security settings
-    const team = await prisma.team.findUnique({
-      where: { id: document.teamId },
+    // Get data room for security settings
+    const dataRoom = await prisma.dataRoom.findUnique({
+      where: { id: document.dataRoomId },
       select: { maxFileSize: true, allowedFileTypes: true },
     });
 
-    if (!team) {
-      return NextResponse.json({ error: "Team not found" }, { status: 404 });
+    if (!dataRoom) {
+      return NextResponse.json({ error: "DataRoom not found" }, { status: 404 });
     }
 
     // Validate file
     const validation = await validateFile(file, buffer, {
-      maxSize: team.maxFileSize,
-      customWhitelist: team.allowedFileTypes as string[] | undefined,
+      maxSize: dataRoom.maxFileSize,
+      customWhitelist: dataRoom.allowedFileTypes as string[] | undefined,
     });
 
     if (!validation.valid) {
@@ -171,7 +169,7 @@ export async function POST(
 
     // Generate unique key for version
     const timestamp = Date.now();
-    const fileKey = `teams/${document.teamId}/documents/${documentId}/versions/${timestamp}-${file.name}`;
+    const fileKey = `datarooms/${document.dataRoomId}/documents/${documentId}/versions/${timestamp}-${file.name}`;
 
     // Upload new file version using storage provider
     const storageProvider = getStorageProvider();
@@ -180,7 +178,7 @@ export async function POST(
       metadata: {
         documentId,
         originalName: file.name,
-        uploadedBy: user.id,
+        uploadedBy: session.userId,
       },
     });
 
@@ -203,7 +201,7 @@ export async function POST(
         fileName: file.name,
         fileType: file.type,
         comment: comment || null,
-        createdById: user.id,
+        createdById: session.userId,
       },
     });
 
@@ -223,8 +221,8 @@ export async function POST(
       action: "DOCUMENT_UPDATED",
       resourceType: "document",
       resourceId: documentId,
-      userId: user.id,
-      teamId: document.teamId,
+      userId: session.userId,
+      dataRoomId: document.dataRoomId,
       metadata: {
         versionNumber: nextVersionNumber,
         comment: comment || undefined,

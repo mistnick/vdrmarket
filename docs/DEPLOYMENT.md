@@ -1,101 +1,102 @@
-# DataRoom - Deployment Guide
+# DataRoom VDR - Deployment Guide
 
-**Deployment Date**: 2025-11-20  
-**Version**: Phase 1 - Core Infrastructure  
-**Status**: ✅ Successfully Deployed
+**Version**: 3.0.0 - DataRoom-based Architecture  
+**Last Updated**: 2025-11-29  
+**Status**: ✅ Production Ready
 
 ---
 
 ## 🎉 Deployment Summary
 
-DataRoom Phase 1 has been successfully built and deployed using Docker Compose!
-
-### Deployment Details
-- **GitHub Repository**: https://github.com/mistnick/dataroom
-- **Latest Commit**: Phase 1 - Core Infrastructure & Authentication
-- **Build Time**: ~182 seconds
-- **Containers**: 3 running (app, postgres, minio)
-- **Status**: All healthy
+DataRoom VDR uses a DataRoom-centric architecture where:
+- **DataRoom** is the root container (replaces Team)
+- **Groups** manage user access (ADMINISTRATOR, USER, CUSTOM)
+- **Permissions** are granular at document/folder level
 
 ---
 
-## 🚀 Access URLs
+## 🚀 Quick Deploy
 
-### Application
-- **Main App**: http://localhost:3000
-- **Landing Page**: http://localhost:3000
-- **Login**: http://localhost:3000/auth/login
-- **Signup**: http://localhost:3000/auth/signup
-- **Dashboard**: http://localhost:3000/dashboard (requires authentication)
+### Development
+```bash
+# Start all services
+docker-compose up -d
 
-### Services
-- **PostgreSQL Database**: localhost:5433
-  - Username: `postgres`
-  - Password: `postgres`
-  - Database: `dataroom`
+# Run migrations
+npm run db:push
 
-- **MinIO (S3-compatible Storage)**: 
-  - API: http://localhost:9100
-  - Console: http://localhost:9101
-  - Username: `minioadmin`
-  - Password: `minioadmin`
+# Seed database
+npm run db:seed
+npm run db:seed:permissions
+```
+
+### Production
+```bash
+# Full deployment with SSL
+./scripts/deploy-production.sh
+
+# Or skip SSL (if already configured)
+./scripts/deploy-production.sh --skip-ssl
+```
 
 ---
 
-## 📦 Running Containers
+## 🐳 Docker Services
 
-```
-dataroom-app         - Next.js Application (port 3000)
-dataroom-postgres    - PostgreSQL 16 Database (port 5433)
-dataroom-minio       - MinIO S3 Storage (ports 9100, 9101)
-```
+### Development (`docker-compose.yml`)
+| Service | Port | Description |
+|---------|------|-------------|
+| postgres | 5433 | PostgreSQL 16 database |
+| redis | 6379 | Cache & session store |
+| minio | 9100/9101 | S3-compatible storage |
+| app | 3000 | Next.js application |
 
-All containers are configured with `restart: unless-stopped` for automatic recovery.
+### Production (`docker-compose.production.yml`)
+| Service | Port | Description |
+|---------|------|-------------|
+| postgres | - | PostgreSQL 16 (internal) |
+| redis | - | Redis 7 (internal) |
+| app | - | Next.js (internal) |
+| nginx | 80/443 | Reverse proxy + SSL |
+| certbot | - | SSL certificate renewal |
+
+---
+
+## 📦 Access URLs
+
+### Development
+- **App**: http://localhost:3000
+- **MinIO Console**: http://localhost:9101
+- **PostgreSQL**: localhost:5433
+
+### Production
+- **Website**: https://www.simplevdr.com
+- **API Health**: https://www.simplevdr.com/api/health
 
 ---
 
 ## 🔧 Docker Commands
 
-### View Container Status
 ```bash
-docker ps
+# View status
 docker-compose ps
-```
 
-### View Logs
-```bash
-# All containers
-docker-compose logs -f
+# View logs
+docker-compose logs -f app
+docker-compose logs -f postgres
 
-# Specific container
-docker logs dataroom-app -f
-docker logs dataroom-postgres -f
-docker logs dataroom-minio -f
-```
-
-### Restart Services
-```bash
-# Restart all
-docker-compose restart
-
-# Restart specific service
+# Restart services
 docker-compose restart app
-```
 
-### Stop Services
-```bash
+# Stop everything
 docker-compose down
-```
 
-### Start Services
-```bash
-docker-compose up -d
-```
-
-### Rebuild and Deploy
-```bash
-docker-compose down
+# Rebuild
 docker-compose up --build -d
+
+# Production commands
+docker-compose -f docker-compose.production.yml ps
+docker-compose -f docker-compose.production.yml logs -f
 ```
 
 ---
@@ -104,263 +105,226 @@ docker-compose up --build -d
 
 ### Access PostgreSQL
 ```bash
+# Development
 docker exec -it dataroom-postgres psql -U postgres -d dataroom
+
+# Production
+docker exec -it dataroom-postgres psql -U ${POSTGRES_USER} -d ${POSTGRES_DB}
 ```
 
 ### Run Migrations
 ```bash
-# From host
+# Development
+npm run db:push
 npm run db:migrate
 
-# Inside container
-docker exec -it dataroom-app npx prisma migrate deploy
+# Production (inside container)
+docker exec dataroom-app npx prisma migrate deploy
 ```
 
-### View Database with Prisma Studio
+### Seed Database
 ```bash
-npm run db:studio
+# Seed users and data rooms
+npm run db:seed
+
+# Seed groups and permissions
+npm run db:seed:permissions
+```
+
+### Backup & Restore
+```bash
+# Backup
+docker exec dataroom-postgres pg_dump -U postgres dataroom > backup_$(date +%Y%m%d).sql
+
+# Restore
+docker exec -i dataroom-postgres psql -U postgres dataroom < backup.sql
 ```
 
 ---
 
-## 📁 MinIO Setup (First Time Only)
+## 🔐 VDR Configuration
+
+### Default Groups
+When running `npm run db:seed:permissions`, the following groups are created for each DataRoom:
+
+1. **Administrators** (type: ADMINISTRATOR)
+   - Full access to all features
+   - All permissions enabled
+
+2. **Users** (type: USER)
+   - View and download access
+   - Limited upload capability
+
+### Permission Flags
+| Flag | Description |
+|------|-------------|
+| canFence | Restrict access to specific sections |
+| canView | View documents/folders |
+| canDownloadEncrypted | Download encrypted versions |
+| canDownloadPdf | Download as PDF |
+| canDownloadOriginal | Download original files |
+| canUpload | Upload new documents |
+| canManage | Full management access |
+
+---
+
+## 📁 MinIO Setup (Development)
 
 1. Open MinIO Console: http://localhost:9101
-2. Login with `minioadmin` / `minioadmin`
-3. Create bucket:
-   - Click "Create Bucket"
-   - Name: `dataroom`
-   - Click "Create"
+2. Login: `minioadmin` / `minioadmin`
+3. Create bucket: `dataroom`
 4. Configure in `.env`:
-   ```env
-   STORAGE_PROVIDER=s3
-   AWS_ENDPOINT=http://minio:9000
-   AWS_ACCESS_KEY_ID=minioadmin
-   AWS_SECRET_ACCESS_KEY=minioadmin
-   AWS_S3_BUCKET=dataroom
-   AWS_REGION=us-east-1
-   ```
-
----
-
-## 🔐 OAuth Configuration (Optional)
-
-To enable OAuth authentication, add credentials to `.env`:
-
-### Google OAuth
-1. Get credentials from [Google Cloud Console](https://console.cloud.google.com/)
-2. Add to `.env`:
-   ```env
-   GOOGLE_CLIENT_ID="your_client_id"
-   GOOGLE_CLIENT_SECRET="your_secret"
-   ```
-
-### Microsoft OAuth
-1. Get credentials from [Azure Portal](https://portal.azure.com/)
-2. Add to `.env`:
-   ```env
-   MICROSOFT_CLIENT_ID="your_client_id"
-   MICROSOFT_CLIENT_SECRET="your_secret"
-   MICROSOFT_TENANT_ID="your_tenant_id"
-   ```
-
-After adding credentials, restart the app container:
-```bash
-docker-compose restart app
+```env
+STORAGE_PROVIDER=s3
+AWS_ENDPOINT=http://minio:9000
+AWS_ACCESS_KEY_ID=minioadmin
+AWS_SECRET_ACCESS_KEY=minioadmin
+AWS_S3_BUCKET=dataroom
 ```
 
 ---
 
-## Testing the Deployment
+## 🔒 SSL Setup (Production)
 
-### 1. Check Application Health
+### Automatic (via deploy script)
 ```bash
-curl http://localhost:3000
-# Should return HTML of landing page
+./scripts/deploy-production.sh
+# SSL certificates are automatically obtained via Let's Encrypt
 ```
 
-### 2. Test Database Connection
+### Manual
 ```bash
-docker exec -it dataroom-postgres pg_isready -U postgres
-# Should return: localhost:5432 - accepting connections
+# Force SSL regeneration
+./scripts/deploy-production.sh --force-ssl
+
+# Skip SSL (use existing)
+./scripts/deploy-production.sh --skip-ssl
 ```
 
-### 3. Test MinIO
-```bash
-curl http://localhost:9100/minio/health/live
-# Should return: OK
-```
-
-### 4. Create Test Account
-1. Navigate to http://localhost:3000/auth/signup
-2. Fill in name, email, password (min 8 characters)
-3. Click "Create Account"
-4. Login at http://localhost:3000/auth/login
-5. Access dashboard at http://localhost:3000/dashboard
+Certificates are stored in:
+- `nginx/certs/fullchain.pem`
+- `nginx/certs/privkey.pem`
 
 ---
 
-## 📊 Monitoring
+## 📝 Environment Variables
 
-### Check Container Health
-```bash
-docker inspect dataroom-postgres --format='{{.State.Health.Status}}'
-# Should return: healthy
+### Required (Production)
+```env
+# Database
+DATABASE_URL=postgresql://user:pass@postgres:5432/dataroom
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=<secure-password>
+POSTGRES_DB=dataroom
+
+# Auth
+NEXTAUTH_URL=https://www.simplevdr.com
+NEXTAUTH_SECRET=<32-char-random-string>
+AUTH_SECRET=<32-char-random-string>
+
+# Redis
+REDIS_URL=redis://:password@redis:6379
+REDIS_PASSWORD=<secure-password>
 ```
 
-### View Resource Usage
-```bash
-docker stats
+### Storage (S3/Aruba)
+```env
+STORAGE_PROVIDER=s3
+AWS_REGION=eu-west-1
+AWS_ACCESS_KEY_ID=<key>
+AWS_SECRET_ACCESS_KEY=<secret>
+AWS_S3_BUCKET=dataroom
+AWS_ENDPOINT=<endpoint>  # Optional for S3-compatible
 ```
 
-### Check Docker Disk Usage
-```bash
-docker system df
+### Email (Optional)
+```env
+RESEND_API_KEY=<key>
+EMAIL_FROM=noreply@simplevdr.com
 ```
 
 ---
 
 ## 🐛 Troubleshooting
 
-### App Container Won't Start
+### App Won't Start
 ```bash
-# View logs
+# Check logs
 docker logs dataroom-app
 
-# Common issues:
-# - Database not ready: Wait for postgres to be healthy
-# - Environment variables missing: Check .env file
-# - Port conflict: Change port in docker-compose.yml
+# Common fixes:
+# 1. Wait for database
+docker-compose restart app
+
+# 2. Run migrations
+docker exec dataroom-app npx prisma migrate deploy
+
+# 3. Regenerate Prisma client
+docker exec dataroom-app npx prisma generate
 ```
 
 ### Database Connection Issues
 ```bash
 # Check if postgres is healthy
-docker ps
+docker ps | grep postgres
 
-# Test connection from app container
-docker exec -it dataroom-app npx prisma db push
+# Test connection
+docker exec dataroom-postgres pg_isready -U postgres
 ```
 
-### MinIO Not Accessible
+### Permission Errors
 ```bash
-# Check if container is running
-docker ps | grep minio
+# Re-run permission seeding
+docker exec dataroom-app npm run db:seed:permissions
 
-# Restart MinIO
-docker-compose restart minio
-```
-
-### Build Failures
-```bash
-# Clean rebuild
-docker-compose down -v  # WARNING: This deletes data!
-docker-compose up --build -d
+# Check groups exist
+docker exec dataroom-postgres psql -U postgres -d dataroom -c "SELECT * FROM groups;"
 ```
 
 ---
 
-## 🔄 Updating the Application
+## 📊 Monitoring
 
-### Pull Latest Changes
+### Health Check
 ```bash
-git pull origin main
+curl http://localhost:3000/api/health
 ```
 
-### Rebuild and Redeploy
+### Resource Usage
 ```bash
+docker stats
+```
+
+### Logs
+```bash
+# All services
+docker-compose logs -f
+
+# Specific service
+docker-compose logs -f app
+```
+
+---
+
+## 🔄 Update Procedure
+
+```bash
+# 1. Pull latest code
+git pull origin main
+
+# 2. Rebuild and restart
 docker-compose down
 docker-compose up --build -d
-```
 
-### Run New Migrations
-```bash
-docker exec -it dataroom-app npx prisma migrate deploy
-```
+# 3. Run migrations
+docker exec dataroom-app npx prisma migrate deploy
 
----
-
-## 📝 Environment Variables
-
-Key environment variables used in production:
-
-```env
-# Database
-DATABASE_URL=postgresql://postgres:postgres@postgres:5432/dataroom?schema=public
-
-# Authentication
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your-secret-key-change-in-production
-AUTH_SECRET=your-secret-key-change-in-production
-
-# Storage
-STORAGE_PROVIDER=s3
-AWS_ENDPOINT=http://minio:9000
-AWS_ACCESS_KEY_ID=minioadmin
-AWS_SECRET_ACCESS_KEY=minioadmin
-AWS_S3_BUCKET=dataroom
-AWS_REGION=us-east-1
-
-# Application
-NODE_ENV=production
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+# 4. Verify health
+curl http://localhost:3000/api/health
 ```
 
 ---
 
-## 🎯 Next Steps
-
-1. **Test Authentication**:
-   - Create a test account
-   - Test OAuth providers (if configured)
-   - Verify session persistence
-
-2. **Configure MinIO**:
-   - Create bucket
-   - Test file upload (when implemented)
-
-3. **Phase 2 Development**:
-   - Start implementing document upload
-   - Integrate storage providers
-   - Build document management UI
-
-4. **Production Deployment**:
-   - Configure reverse proxy (nginx)
-   - Setup HTTPS/SSL certificates
-   - Configure production domain
-   - Setup proper secrets
-   - Configure backups
-
----
-
-## 💾 Backup Strategy
-
-### Database Backup
-```bash
-# Create backup
-docker exec dataroom-postgres pg_dump -U postgres dataroom > backup_$(date +%Y%m%d).sql
-
-# Restore backup
-docker exec -i dataroom-postgres psql -U postgres dataroom < backup_20251120.sql
-```
-
-### MinIO Data Backup
-```bash
-# MinIO data is in Docker volume: minio_data
-docker run --rm -v dataroom_minio_data:/data -v $(pwd):/backup alpine tar czf /backup/minio_backup.tar.gz -C /data .
-```
-
----
-
-## 📞 Support
-
-- **Issues**: https://github.com/mistnick/dataroom/issues
-- **Documentation**: `/docs` folder
-- **Task Tracking**: `task.md`
-- **Implementation Plan**: `implementation_plan.md`
-
----
-
-**Last Updated**: 2025-11-20  
-**Deployed Version**: Phase 1  
-**Status**: 🟢 Running
+**Status**: 🟢 Production Ready  
+**Docker Version**: 3.0.0  
+**Last Deploy**: 2025-11-29

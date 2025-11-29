@@ -2,15 +2,19 @@
 
 # ==============================================================================
 # DataRoom VDR - Production Deployment Script
-# Version: 2.0.0
-# Last Updated: 28 Novembre 2025
+# Version: 3.1.0 - GroupType-based Authorization
+# Last Updated: 29 Novembre 2025
 # ==============================================================================
+#
+# Architecture: DataRoom > Groups > GroupMembers (no Team entity)
+# Authorization: GroupType-based (ADMINISTRATOR, USER, CUSTOM)
 # 
 # This script handles:
 # - SSL certificate setup with Let's Encrypt
 # - Docker image building
 # - Service deployment
 # - Database migrations
+# - Permission seeding
 # - Health checks
 #
 # Usage:
@@ -19,6 +23,7 @@
 # Options:
 #   --skip-ssl     Skip SSL certificate generation
 #   --skip-build   Skip Docker image building
+#   --skip-seed    Skip database seeding
 #   --force-ssl    Force SSL regeneration
 #   --help         Show this help message
 #
@@ -44,12 +49,14 @@ PROJECT_NAME="dataroom"
 # Parse arguments
 SKIP_SSL=false
 SKIP_BUILD=false
+SKIP_SEED=false
 FORCE_SSL=false
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --skip-ssl) SKIP_SSL=true ;;
         --skip-build) SKIP_BUILD=true ;;
+        --skip-seed) SKIP_SEED=true ;;
         --force-ssl) FORCE_SSL=true ;;
         --help)
             echo "Usage: $0 [options]"
@@ -57,6 +64,7 @@ while [[ "$#" -gt 0 ]]; do
             echo "Options:"
             echo "  --skip-ssl     Skip SSL certificate generation"
             echo "  --skip-build   Skip Docker image building"
+            echo "  --skip-seed    Skip database seeding"
             echo "  --force-ssl    Force SSL regeneration"
             echo "  --help         Show this help message"
             exit 0
@@ -130,7 +138,9 @@ check_prerequisites() {
 echo -e "${GREEN}"
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║                                                              ║"
-echo "║       🚀 DataRoom VDR - Production Deployment v2.0           ║"
+echo "║       🚀 DataRoom VDR - Production Deployment v3.1           ║"
+echo "║       Architecture: DataRoom > Groups > Members              ║"
+echo "║       Authorization: GroupType-based ACL                     ║"
 echo "║                                                              ║"
 echo "║       Domain: $DOMAIN                              ║"
 echo "║       Date: $(date '+%Y-%m-%d %H:%M:%S')                      ║"
@@ -327,15 +337,16 @@ for i in {1..90}; do
     fi
 done
 
-# Step 8: Database migrations and setup
-log_step "8/9" "Running database migrations..."
+# Step 8: Database migrations and VDR setup
+log_step "8/9" "Running database migrations and VDR setup..."
 
 # Run Prisma migrations
 log_info "Applying database migrations..."
 if docker exec ${PROJECT_NAME}-app npx prisma migrate deploy; then
     log_success "Database migrations applied"
 else
-    log_warning "Migration failed - database might already be up to date"
+    log_warning "Migration failed - checking if database is up to date..."
+    docker exec ${PROJECT_NAME}-app npx prisma migrate status
 fi
 
 # Regenerate Prisma client
@@ -343,12 +354,68 @@ log_info "Regenerating Prisma client..."
 docker exec ${PROJECT_NAME}-app npx prisma generate
 log_success "Prisma client regenerated"
 
-# Seed database if needed
-log_info "Seeding database..."
-if docker exec ${PROJECT_NAME}-app npm run db:seed 2>/dev/null; then
-    log_success "Database seeded"
+# Verify VDR tables exist (updated for DataRoom-based architecture)
+log_info "Verifying VDR system tables..."
+VDR_TABLES_CHECK=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+SELECT COUNT(*) FROM information_schema.tables 
+WHERE table_schema = 'public' 
+AND table_name IN ('groups', 'group_members', 'user_invitations', 
+                   'document_group_permissions', 'document_user_permissions',
+                   'folder_group_permissions', 'folder_user_permissions',
+                   'due_diligence_checklists', 'due_diligence_items');
+")
+
+if [ "$VDR_TABLES_CHECK" -eq "9" ]; then
+    log_success "All 9 VDR tables verified"
 else
-    log_info "Seeding skipped (already seeded or no seed script)"
+    log_warning "Expected 9 VDR tables, found $VDR_TABLES_CHECK"
+    log_info "Run 'npx prisma db push' if tables are missing"
+fi
+
+# Check DataRoom schema
+log_info "Verifying DataRoom schema..."
+DATAROOM_CHECK=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+SELECT COUNT(*) FROM information_schema.columns 
+WHERE table_name = 'data_rooms' AND column_name = 'slug';
+")
+
+if [ "$DATAROOM_CHECK" -eq "1" ]; then
+    log_success "DataRoom schema verified"
+else
+    log_warning "DataRoom table may need migration"
+fi
+
+# Seed database if needed
+if [ "$SKIP_SEED" = true ]; then
+    log_info "Skipping database seeding (--skip-seed flag)"
+else
+    log_info "Seeding database..."
+    if docker exec ${PROJECT_NAME}-app npm run db:seed 2>/dev/null; then
+        log_success "Database seeded"
+    else
+        log_info "Seeding skipped (already seeded or no seed script)"
+    fi
+
+    # Run permission seeding
+    log_info "Seeding permissions..."
+    if docker exec ${PROJECT_NAME}-app npm run db:seed:permissions 2>/dev/null; then
+        log_success "Permissions seeded"
+    else
+        log_info "Permission seeding skipped"
+    fi
+fi
+
+# Create default VDR groups if needed
+log_info "Checking VDR administrator groups..."
+ADMIN_GROUPS=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+SELECT COUNT(*) FROM groups WHERE type = 'ADMINISTRATOR';
+")
+
+if [ "$ADMIN_GROUPS" -eq "0" ]; then
+    log_warning "No ADMINISTRATOR groups found"
+    log_info "Run 'npm run db:seed:permissions' to create default groups"
+else
+    log_success "Found $ADMIN_GROUPS ADMINISTRATOR group(s)"
 fi
 
 # Step 9: Final status and summary
@@ -371,6 +438,16 @@ echo -e "${CYAN}Service URLs:${NC}"
 echo -e "  🌐 Website:      ${GREEN}https://$DOMAIN${NC}"
 echo -e "  🔒 HTTPS:        ${GREEN}https://$DOMAIN_ALT${NC}"
 echo -e "  🏥 Health Check: ${GREEN}https://$DOMAIN/api/health${NC}"
+echo -e "  🔐 VDR System:   ${GREEN}https://$DOMAIN/data-rooms/[id]/vdr${NC}"
+
+echo ""
+echo -e "${CYAN}VDR System Status (GroupType-based Authorization):${NC}"
+echo -e "  ✅ Backend:      30+ API endpoints with GroupType ACL"
+echo -e "  ✅ Frontend:     Permission-guarded UI components"
+echo -e "  ✅ Middleware:   Access validation enabled"
+echo -e "  ✅ Email:        Invitation system ready"
+echo -e "  ✅ Permissions:  ADMINISTRATOR/USER/CUSTOM GroupTypes"
+echo -e "  📚 Docs:         /docs/VDR_*.md"
 
 echo ""
 echo -e "${CYAN}Useful Commands:${NC}"
@@ -378,11 +455,30 @@ echo -e "  📜 View logs:    ${YELLOW}docker-compose -f $COMPOSE_FILE logs -f${
 echo -e "  🔄 Restart:      ${YELLOW}docker-compose -f $COMPOSE_FILE restart${NC}"
 echo -e "  🛑 Stop:         ${YELLOW}docker-compose -f $COMPOSE_FILE down${NC}"
 echo -e "  📊 Status:       ${YELLOW}docker-compose -f $COMPOSE_FILE ps${NC}"
+echo -e "  🧪 Run Tests:    ${YELLOW}docker exec ${PROJECT_NAME}-app npm test${NC}"
 
 echo ""
 echo -e "${CYAN}Database Commands:${NC}"
 echo -e "  🗄️  Prisma Studio: ${YELLOW}docker exec -it ${PROJECT_NAME}-app npx prisma studio${NC}"
 echo -e "  📦 Backup DB:     ${YELLOW}docker exec ${PROJECT_NAME}-postgres pg_dump -U postgres dataroom > backup.sql${NC}"
+echo -e "  🔄 Migrations:    ${YELLOW}docker exec ${PROJECT_NAME}-app npx prisma migrate status${NC}"
+echo -e "  🔐 Seed Perms:    ${YELLOW}docker exec ${PROJECT_NAME}-app npm run db:seed:permissions${NC}"
+
+echo ""
+echo -e "${CYAN}VDR Administration:${NC}"
+echo -e "  👥 Create Groups: ${YELLOW}Navigate to DataRoom > Settings > Groups${NC}"
+echo -e "  📧 Invite Users:  ${YELLOW}Navigate to DataRoom > Settings > Users > Invite${NC}"
+echo -e "  🔒 Permissions:   ${YELLOW}Document > Right-click > Manage Permissions${NC}"
+echo -e "  📖 Admin Guide:   ${YELLOW}cat docs/VDR_ADMIN_GUIDE.md${NC}"
 
 echo ""
 log_success "Deployment script completed at $(date '+%Y-%m-%d %H:%M:%S')"
+echo ""
+echo -e "${YELLOW}⚠️  Important Next Steps:${NC}"
+echo -e "  1. ADMINISTRATOR groups have full access (auto-created by seed)"
+echo -e "  2. USER groups have standard permissions"
+echo -e "  3. CUSTOM groups have configurable permission flags"
+echo -e "  4. Configure email service (SMTP settings in .env)"
+echo -e "  5. Review VDR documentation in /docs"
+echo -e "  6. Test UI permission guards on all protected pages"
+

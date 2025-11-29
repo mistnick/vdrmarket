@@ -25,26 +25,27 @@ export async function GET(
             return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
-        // Get data room with team membership check
-        const dataRoom = await prisma.dataRoom.findUnique({
-            where: { id: dataRoomId },
-            include: {
-                team: {
-                    include: {
-                        members: {
-                            where: { userId: user.id },
-                        },
-                    },
+        // Check access via GroupMember
+        const memberAccess = await prisma.groupMember.findFirst({
+            where: {
+                userId: user.id,
+                group: {
+                    dataRoomId,
                 },
             },
         });
 
-        if (!dataRoom) {
-            return NextResponse.json({ error: "Data room not found" }, { status: 404 });
+        if (!memberAccess) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        if (dataRoom.team.members.length === 0) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        // Get data room
+        const dataRoom = await prisma.dataRoom.findUnique({
+            where: { id: dataRoomId },
+        });
+
+        if (!dataRoom) {
+            return NextResponse.json({ error: "Data room not found" }, { status: 404 });
         }
 
         // Parse query parameters
@@ -66,9 +67,16 @@ export async function GET(
         if (priority) where.priority = priority;
 
         // Bidder isolation: users only see questions from their bidder group
-        // unless they are the data room owner/admin
-        const teamMember = dataRoom.team.members[0];
-        const isAdmin = teamMember && (teamMember.role === "owner" || teamMember.role === "admin");
+        // unless they are in ADMINISTRATOR group type
+        const isAdmin = await prisma.groupMember.findFirst({
+            where: {
+                userId: user.id,
+                group: {
+                    dataRoomId,
+                    type: "ADMINISTRATOR",
+                },
+            },
+        });
 
         if (!isAdmin && bidderGroup) {
             where.bidderGroup = bidderGroup;
@@ -165,25 +173,17 @@ export async function POST(
             return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
-        // Check access to data room
-        const dataRoom = await prisma.dataRoom.findUnique({
-            where: { id: dataRoomId },
-            include: {
-                team: {
-                    include: {
-                        members: {
-                            where: { userId: user.id },
-                        },
-                    },
+        // Check access via GroupMember
+        const memberAccess = await prisma.groupMember.findFirst({
+            where: {
+                userId: user.id,
+                group: {
+                    dataRoomId,
                 },
             },
         });
 
-        if (!dataRoom) {
-            return NextResponse.json({ error: "Data room not found" }, { status: 404 });
-        }
-
-        if (dataRoom.team.members.length === 0) {
+        if (!memberAccess) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
@@ -229,11 +229,13 @@ export async function POST(
 
         // Notify assigned user or admins about new question
         try {
-            // Find admins/owners of the data room
-            const adminMembers = await prisma.teamMember.findMany({
+            // Find admins of the data room via ADMINISTRATOR group type
+            const adminMembers = await prisma.groupMember.findMany({
                 where: {
-                    teamId: dataRoom.teamId,
-                    role: { in: ["owner", "admin"] },
+                    group: {
+                        dataRoomId,
+                        type: "ADMINISTRATOR",
+                    },
                 },
                 include: {
                     user: true,

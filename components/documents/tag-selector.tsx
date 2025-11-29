@@ -15,13 +15,13 @@ interface Tag {
 
 interface TagSelectorProps {
     documentId: string;
-    teamId: string;
+    dataRoomId: string;
     onTagsChange?: (tags: Tag[]) => void;
 }
 
 export function TagSelector({
     documentId,
-    teamId,
+    dataRoomId,
     onTagsChange,
 }: TagSelectorProps) {
     const [open, setOpen] = useState(false);
@@ -34,7 +34,7 @@ export function TagSelector({
     useEffect(() => {
         fetchDocumentTags();
         fetchAvailableTags();
-    }, [documentId, teamId]);
+    }, [documentId, dataRoomId]);
 
     const fetchDocumentTags = async () => {
         try {
@@ -56,7 +56,7 @@ export function TagSelector({
         setLoading(true);
 
         try {
-            const response = await fetch(`/api/teams/${teamId}/tags`);
+            const response = await fetch(`/api/datarooms/${dataRoomId}/tags`);
             const data = await response.json();
 
             if (!response.ok) {
@@ -131,7 +131,7 @@ export function TagSelector({
         setError("");
 
         try {
-            const createResponse = await fetch(`/api/teams/${teamId}/tags`, {
+            const createResponse = await fetch(`/api/datarooms/${dataRoomId}/tags`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ name: search.trim(), color: "#3b82f6" }),

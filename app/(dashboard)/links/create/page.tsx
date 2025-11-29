@@ -48,15 +48,15 @@ export default function CreateLinkPage() {
 
     const fetchDocuments = async () => {
         try {
-            // We need to get all documents from user's teams
-            const response = await fetch("/api/teams");
-            const teamsData = await response.json();
+            // Get all documents from user's data rooms
+            const response = await fetch("/api/datarooms");
+            const dataRoomsData = await response.json();
 
-            if (teamsData.success) {
+            if (dataRoomsData.success) {
                 const allDocs: any[] = [];
 
-                for (const team of teamsData.data) {
-                    const docsResponse = await fetch(`/api/documents?teamId=${team.id}`);
+                for (const dataRoom of dataRoomsData.data) {
+                    const docsResponse = await fetch(`/api/documents?dataRoomId=${dataRoom.id}`);
                     const docsData = await docsResponse.json();
                     if (docsData.success) {
                         allDocs.push(...docsData.data);

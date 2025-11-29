@@ -36,6 +36,12 @@ describe('Session Management', () => {
     passwordResetExpiry: null,
     twoFactorEnabled: false,
     twoFactorSecret: null,
+    isActive: true,
+    status: 'ACTIVE',
+    accessType: 'UNLIMITED',
+    accessStartAt: null,
+    accessEndAt: null,
+    allowedIps: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

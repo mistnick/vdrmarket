@@ -1,86 +1,123 @@
-# Base image with optimizations (Node 22 LTS)
-FROM node:22-alpine AS base
+# ==============================================================================
+# DataRoom VDR - Multi-Stage Production Dockerfile
+# Version: 3.1.0 - GroupType-based Authorization
+# Last Updated: 29 Novembre 2025
+# ==============================================================================
 
-# Set up environment
-ENV NODE_ENV=production
+# -----------------------------------------------------------------------------
+# Stage 1: Dependencies
+# -----------------------------------------------------------------------------
+FROM node:22-alpine AS deps
+LABEL stage=deps
 
-# Install dependencies only when needed
-FROM base AS deps
-RUN apk add --no-cache libc6-compat openssl
+# Install system dependencies
+RUN apk add --no-cache \
+    libc6-compat \
+    openssl \
+    ca-certificates
+
 WORKDIR /app
 
-# Copy package files with better caching
+# Copy package files (leverage Docker cache)
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma
 
-# Install with clean cache
-RUN npm install --legacy-peer-deps --no-audit --no-fund && \
-    npm cache clean --force
+# Install dependencies with optimizations
+RUN npm ci --legacy-peer-deps && \
+    npm cache clean --force && \
+    rm -rf /tmp/*
 
-# Rebuild the source code only when needed
-FROM base AS builder
+# -----------------------------------------------------------------------------
+# Stage 2: Builder
+# -----------------------------------------------------------------------------
+FROM node:22-alpine AS builder
+LABEL stage=builder
+
 WORKDIR /app
+
+# Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Provide DATABASE_URL for Prisma config (dummy value for generation)
+# Set build-time environment variables
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+# Dummy DATABASE_URL for Prisma generation (override at runtime)
 ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/dataroom?schema=public"
 
 # Generate Prisma Client
 RUN npx prisma generate
 
-
-# Build Next.js application with optimizations
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=production
+# Build Next.js with optimizations
 RUN npm run build && \
-    rm -rf .next/cache
+    # Remove development dependencies to reduce size
+    npm prune --omit=dev --legacy-peer-deps && \
+    # Clean build artifacts
+    rm -rf .next/cache && \
+    rm -rf node_modules/.cache && \
+    # Remove test files
+    find . -name "*.test.ts" -o -name "*.test.tsx" -o -name "*.spec.ts" | xargs rm -f
 
-# Production image, copy all the files and run next
-FROM base AS runner
+# -----------------------------------------------------------------------------
+# Stage 3: Production Runner
+# -----------------------------------------------------------------------------
+FROM node:22-alpine AS runner
+LABEL stage=runner
+LABEL maintainer="SimpleVDR Team"
+LABEL description="DataRoom VDR - Virtual Data Room Platform"
+LABEL version="3.1.0"
+
+# Install runtime dependencies only
+RUN apk add --no-cache \
+    openssl \
+    ca-certificates \
+    wget \
+    dumb-init && \
+    rm -rf /var/cache/apk/*
+
 WORKDIR /app
 
+# Production environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# Install openssl for Prisma
-RUN apk add --no-cache openssl
-
-# Create non-root user
+# Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+    adduser --system --uid 1001 nextjs && \
+    mkdir -p .next logs uploads /tmp && \
+    chown -R nextjs:nodejs .next logs uploads /tmp
 
 # Copy public assets
-COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Create directories with proper permissions
-RUN mkdir -p .next logs && \
-    chown -R nextjs:nodejs .next logs
-
-# Automatically leverage output traces to reduce image size
+# Copy Next.js standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy ALL node_modules to ensure Prisma CLI works
+# Copy node_modules (for Prisma and other runtime dependencies)
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
-# Copy Prisma files
+# Copy Prisma files for migrations
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
 
-
-
+# Switch to non-root user
 USER nextjs
 
+# Expose port
 EXPOSE 3000
 
+# Environment variables for runtime
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
-# Start the server (migrations should be run separately)
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start server
 CMD ["node", "server.js"]
-

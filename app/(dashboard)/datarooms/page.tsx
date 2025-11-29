@@ -38,26 +38,11 @@ export default function DataRoomsPage() {
   const [dataRooms, setDataRooms] = useState<DataRoom[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [teamId, setTeamId] = useState<string>("");
 
   useEffect(() => {
-    async function fetchTeam() {
-      const { data, error } = await authFetch<{ id: string }>("/api/teams/current");
-      if (data?.id) {
-        setTeamId(data.id);
-      } else if (error) {
-        console.error("Error fetching team:", error);
-      }
-    }
-    fetchTeam();
-  }, [authFetch]);
-
-  useEffect(() => {
-    if (!teamId) return;
-
     async function fetchDataRooms() {
       setLoading(true);
-      const { data, error } = await authFetch<{ data: DataRoom[] }>(`/api/datarooms?teamId=${teamId}`);
+      const { data, error } = await authFetch<{ data: DataRoom[] }>("/api/datarooms");
       
       if (data?.data) {
         setDataRooms(data.data);
@@ -69,18 +54,16 @@ export default function DataRoomsPage() {
     }
 
     fetchDataRooms();
-  }, [teamId, authFetch]);
+  }, [authFetch]);
 
   const refreshDataRooms = useCallback(async () => {
-    if (!teamId) return;
-
-    const { data, error } = await authFetch<{ data: DataRoom[] }>(`/api/datarooms?teamId=${teamId}`);
+    const { data, error } = await authFetch<{ data: DataRoom[] }>("/api/datarooms");
     if (data?.data) {
       setDataRooms(data.data);
     } else if (error) {
       console.error("Error refreshing data rooms:", error);
     }
-  }, [teamId, authFetch]);
+  }, [authFetch]);
 
   const breadcrumbs = [
     { label: "Home", href: "/dashboard" },
@@ -95,7 +78,7 @@ export default function DataRoomsPage() {
         description="Organize documents in secure virtual data rooms"
         breadcrumbs={breadcrumbs}
         actions={
-          <Button onClick={() => setDialogOpen(true)} disabled={!teamId} className="bg-primary hover:bg-primary/90">
+          <Button onClick={() => setDialogOpen(true)} className="bg-primary hover:bg-primary/90">
             <Shield className="mr-2 h-4 w-4" strokeWidth={1.5} />
             Create Data Room
           </Button>
@@ -231,7 +214,6 @@ export default function DataRoomsPage() {
       <CreateDataRoomDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        teamId={teamId}
         onSuccess={refreshDataRooms}
       />
     </div>

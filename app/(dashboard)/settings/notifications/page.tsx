@@ -26,7 +26,7 @@ interface NotificationPreferences {
     emailEnabled: boolean;
     emailLinkViewed: boolean;
     emailDocumentShared: boolean;
-    emailTeamInvitation: boolean;
+    emailGroupInvitation: boolean;
     emailCommentMention: boolean;
     emailQAActivity: boolean;
     inAppEnabled: boolean;
@@ -44,7 +44,7 @@ export default function NotificationSettingsPage() {
         emailEnabled: true,
         emailLinkViewed: true,
         emailDocumentShared: true,
-        emailTeamInvitation: true,
+        emailGroupInvitation: true,
         emailCommentMention: true,
         emailQAActivity: true,
         inAppEnabled: true,
@@ -193,15 +193,15 @@ export default function NotificationSettingsPage() {
                         </div>
 
                         <div className="flex items-center justify-between">
-                            <Label htmlFor="email-team-invitation" className="text-sm">
-                                Team invitations
+                            <Label htmlFor="email-group-invitation" className="text-sm">
+                                Group invitations
                             </Label>
                             <Switch
-                                id="email-team-invitation"
-                                checked={preferences.emailTeamInvitation}
+                                id="email-group-invitation"
+                                checked={preferences.emailGroupInvitation}
                                 disabled={!preferences.emailEnabled}
                                 onCheckedChange={(checked) =>
-                                    setPreferences({ ...preferences, emailTeamInvitation: checked })
+                                    setPreferences({ ...preferences, emailGroupInvitation: checked })
                                 }
                             />
                         </div>

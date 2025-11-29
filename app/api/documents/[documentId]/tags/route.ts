@@ -9,37 +9,37 @@ export async function GET(
     try {
         const session = await getSession();
 
-        if (!session) {
+        if (!session?.userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const { documentId } = await params;
 
-        // Get user
-        const user = await prisma.user.findUnique({
-            where: { email: session.email },
-        });
-
-        if (!user) {
-            return NextResponse.json({ error: "User not found" }, { status: 404 });
-        }
-
-        // Check access
-        const document = await prisma.document.findUnique({
-            where: { id: documentId },
-            include: {
-                team: {
-                    include: {
-                        members: {
-                            where: { userId: user.id },
+        // Check access via GroupMember
+        const document = await prisma.document.findFirst({
+            where: {
+                id: documentId,
+                OR: [
+                    { ownerId: session.userId },
+                    {
+                        dataRoom: {
+                            groups: {
+                                some: {
+                                    members: {
+                                        some: {
+                                            userId: session.userId,
+                                        },
+                                    },
+                                },
+                            },
                         },
                     },
-                },
+                ],
             },
         });
 
-        if (!document || document.team.members.length === 0) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        if (!document) {
+            return NextResponse.json({ error: "Document not found or access denied" }, { status: 403 });
         }
 
         // Fetch document tags
@@ -69,37 +69,38 @@ export async function POST(
     try {
         const session = await getSession();
 
-        if (!session) {
+        if (!session?.userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const { documentId } = await params;
 
-        // Get user
-        const user = await prisma.user.findUnique({
-            where: { email: session.email },
-        });
-
-        if (!user) {
-            return NextResponse.json({ error: "User not found" }, { status: 404 });
-        }
-
-        // Check access
-        const document = await prisma.document.findUnique({
-            where: { id: documentId },
-            include: {
-                team: {
-                    include: {
-                        members: {
-                            where: { userId: user.id },
+        // Check access via GroupMember with edit permissions (ADMINISTRATOR group type)
+        const document = await prisma.document.findFirst({
+            where: {
+                id: documentId,
+                OR: [
+                    { ownerId: session.userId },
+                    {
+                        dataRoom: {
+                            groups: {
+                                some: {
+                                    type: "ADMINISTRATOR",
+                                    members: {
+                                        some: {
+                                            userId: session.userId,
+                                        },
+                                    },
+                                },
+                            },
                         },
                     },
-                },
+                ],
             },
         });
 
-        if (!document || document.team.members.length === 0) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        if (!document) {
+            return NextResponse.json({ error: "Document not found or access denied" }, { status: 403 });
         }
 
         // Parse body
@@ -113,12 +114,12 @@ export async function POST(
             );
         }
 
-        // Verify tag belongs to same team
+        // Verify tag belongs to same data room
         const tag = await prisma.tag.findUnique({
             where: { id: tagId },
         });
 
-        if (!tag || tag.teamId !== document.teamId) {
+        if (!tag || tag.dataRoomId !== document.dataRoomId) {
             return NextResponse.json({ error: "Invalid tag" }, { status: 400 });
         }
 

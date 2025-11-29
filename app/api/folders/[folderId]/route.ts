@@ -19,7 +19,7 @@ export async function GET(
     const folder = await prisma.folder.findUnique({
       where: { id: folderId },
       include: {
-        team: {
+        dataRoom: {
           select: {
             id: true,
             name: true,
@@ -51,17 +51,24 @@ export async function GET(
       return NextResponse.json({ error: "Folder not found" }, { status: 404 });
     }
 
-    // Check if user has access (team member)
+    // Check if user has access (group member in same dataRoom)
     const user = await prisma.user.findUnique({
       where: { email: session.email },
       include: {
-        teams: {
-          where: { teamId: folder.teamId },
+        groupMemberships: {
+          include: {
+            group: true,
+          },
+          where: {
+            group: {
+              dataRoomId: folder.dataRoomId,
+            },
+          },
         },
       },
     });
 
-    if (!user || user.teams.length === 0) {
+    if (!user || user.groupMemberships.length === 0) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -92,10 +99,14 @@ export async function DELETE(
     const folder = await prisma.folder.findUnique({
       where: { id: folderId },
       include: {
-        team: {
+        dataRoom: {
           include: {
-            members: {
-              include: { user: true },
+            groups: {
+              include: {
+                members: {
+                  include: { user: true },
+                },
+              },
             },
           },
         },
@@ -107,9 +118,16 @@ export async function DELETE(
     }
 
     // Check permissions (owner or admin)
-    const user = folder.team.members.find(
-      (m) => m.user.email === session.email
-    );
+    let user = null;
+    for (const group of folder.dataRoom.groups) {
+      const member = group.members.find(
+        (m) => m.user.email === session.email
+      );
+      if (member) {
+        user = member;
+        break;
+      }
+    }
 
     if (
       !user ||

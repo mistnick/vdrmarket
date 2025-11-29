@@ -21,7 +21,7 @@ export async function GET(
       include: {
         document: {
           include: {
-            team: true,
+            dataRoom: true,
           },
         },
       },
@@ -87,7 +87,7 @@ export async function GET(
     await createAuditLog({
       action: "DOCUMENT_WATERMARKED",
       userId: null,
-      teamId: link.document.teamId,
+      dataRoomId: link.document.dataRoomId,
       resourceType: "DOCUMENT",
       resourceId: link.document.id,
       metadata: {

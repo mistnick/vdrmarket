@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const teamId = searchParams.get("teamId");
+    const dataRoomId = searchParams.get("dataRoomId");
     const folderId = searchParams.get("folderId");
 
     const user = await prisma.user.findUnique({
@@ -33,18 +33,23 @@ export async function GET(request: Request) {
       );
     }
 
+    // Build query - only show documents from data rooms where user is a member
     const where: any = {
-      team: {
-        members: {
+      dataRoom: {
+        groups: {
           some: {
-            userId: user.id,
+            members: {
+              some: {
+                userId: user.id,
+              },
+            },
           },
         },
       },
     };
 
-    if (teamId) {
-      where.teamId = teamId;
+    if (dataRoomId) {
+      where.dataRoomId = dataRoomId;
     }
 
     if (folderId) {
@@ -55,7 +60,7 @@ export async function GET(request: Request) {
       where,
       include: {
         owner: true,
-        team: true,
+        dataRoom: true,
         folder: true,
         _count: {
           select: {
@@ -96,15 +101,14 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
-    const teamId = formData.get("teamId") as string;
+    const dataRoomId = formData.get("dataRoomId") as string;
     const folderId = formData.get("folderId") as string | null;
-    const dataRoomId = formData.get("dataRoomId") as string | null;
     const name = formData.get("name") as string;
     const description = formData.get("description") as string | null;
 
-    if (!file || !teamId) {
+    if (!file || !dataRoomId) {
       return NextResponse.json(
-        { success: false, error: "File and teamId are required" },
+        { success: false, error: "File and dataRoomId are required" },
         { status: 400 }
       );
     }
@@ -121,35 +125,38 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check team membership
-    const teamMember = await prisma.teamMember.findUnique({
+    // Check data room membership
+    const membership = await prisma.groupMember.findFirst({
       where: {
-        teamId_userId: {
-          teamId,
-          userId: user.id,
+        userId: user.id,
+        group: {
+          dataRoomId,
         },
+      },
+      include: {
+        group: true,
       },
     });
 
-    if (!teamMember) {
+    if (!membership) {
       return NextResponse.json(
-        { success: false, error: "Not a member of this team" },
+        { success: false, error: "Not a member of this data room" },
         { status: 403 }
       );
     }
 
-    // Get team settings for file upload limits
-    const team = await prisma.team.findUnique({
-      where: { id: teamId },
+    // Get data room settings for file upload limits
+    const dataRoom = await prisma.dataRoom.findUnique({
+      where: { id: dataRoomId },
       select: {
         maxFileSize: true,
         allowedFileTypes: true,
       },
     });
 
-    if (!team) {
+    if (!dataRoom) {
       return NextResponse.json(
-        { success: false, error: "Team not found" },
+        { success: false, error: "Data room not found" },
         { status: 404 }
       );
     }
@@ -159,8 +166,8 @@ export async function POST(request: Request) {
 
     // Validate file (type, size, filename, MIME verification)
     const validation = await validateFile(file, fileBuffer, {
-      maxSize: team.maxFileSize,
-      customWhitelist: team.allowedFileTypes as string[] | undefined,
+      maxSize: dataRoom.maxFileSize,
+      customWhitelist: dataRoom.allowedFileTypes as string[] | undefined,
     });
 
     if (!validation.valid) {
@@ -184,12 +191,12 @@ export async function POST(request: Request) {
 
     // Upload file to storage with secure key
     const storage = getStorageProvider();
-    const fileKey = generateSecureStorageKey(teamId, validation.sanitizedFilename || file.name);
+    const fileKey = generateSecureStorageKey(dataRoomId, validation.sanitizedFilename || file.name);
 
     const uploadResult = await storage.upload(fileKey, fileBuffer, {
       contentType: file.type,
       metadata: {
-        originalName: file.name,
+        originalName: encodeURIComponent(file.name),
         uploadedBy: user.id,
       },
     });
@@ -202,24 +209,22 @@ export async function POST(request: Request) {
         file: uploadResult.key,
         fileType: validation.detectedMimeType || file.type,
         fileSize: file.size,
-        teamId,
+        dataRoomId,
         ownerId: user.id,
         folderId: folderId || null,
-        dataRoomId: dataRoomId || null,
         scanStatus: scanResult.status,
-        scanResult: scanResult as any, // Store scan metadata as JSON
+        scanResult: scanResult as any,
       },
       include: {
         owner: true,
-        team: true,
-        folder: true,
         dataRoom: true,
+        folder: true,
       },
     });
 
     // Log audit event
     await AuditService.log({
-      teamId,
+      dataRoomId,
       userId: user.id,
       action: "created",
       resourceType: "document",

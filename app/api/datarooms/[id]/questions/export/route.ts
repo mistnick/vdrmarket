@@ -24,22 +24,27 @@ export async function GET(
             return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
-        // Check access
-        const dataRoom = await prisma.dataRoom.findUnique({
-            where: { id: dataRoomId },
-            include: {
-                team: {
-                    include: {
-                        members: {
-                            where: { userId: user.id },
-                        },
-                    },
+        // Check access via GroupMember
+        const memberAccess = await prisma.groupMember.findFirst({
+            where: {
+                userId: user.id,
+                group: {
+                    dataRoomId,
                 },
             },
         });
 
-        if (!dataRoom || dataRoom.team.members.length === 0) {
+        if (!memberAccess) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+
+        // Get data room for name
+        const dataRoom = await prisma.dataRoom.findUnique({
+            where: { id: dataRoomId },
+        });
+
+        if (!dataRoom) {
+            return NextResponse.json({ error: "Data room not found" }, { status: 404 });
         }
 
         // Get format from query

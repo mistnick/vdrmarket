@@ -26,9 +26,9 @@ export type AuditAction =
     | "PERMISSION_CHANGED"
     | "USER_INVITED"
     | "USER_REMOVED"
-    | "TEAM_CREATED"
-    | "TEAM_UPDATED"
-    | "TEAM_DELETED"
+    | "GROUP_CREATED"
+    | "GROUP_UPDATED"
+    | "GROUP_DELETED"
     | "SECURITY_VIOLATION";
 
 export type ResourceType =
@@ -36,12 +36,12 @@ export type ResourceType =
     | "folder"
     | "link"
     | "dataroom"
-    | "team"
+    | "group"
     | "user"
     | "permission";
 
 interface CreateAuditLogParams {
-    teamId?: string;
+    dataRoomId?: string;
     userId?: string;
     action: AuditAction;
     resourceType: ResourceType;
@@ -56,7 +56,7 @@ interface CreateAuditLogParams {
  * Create an audit log entry
  */
 export async function createAuditLog({
-    teamId,
+    dataRoomId,
     userId,
     action,
     resourceType,
@@ -78,7 +78,7 @@ export async function createAuditLog({
 
         await prisma.auditLog.create({
             data: {
-                teamId,
+                dataRoomId,
                 userId,
                 action,
                 resourceType,
@@ -109,7 +109,7 @@ export async function logDocumentAction(
     >,
     documentId: string,
     userId?: string,
-    teamId?: string,
+    dataRoomId?: string,
     metadata?: Record<string, any>,
     request?: NextRequest
 ) {
@@ -118,7 +118,7 @@ export async function logDocumentAction(
         resourceType: "document",
         resourceId: documentId,
         userId,
-        teamId,
+        dataRoomId,
         metadata,
         request,
     });
@@ -131,7 +131,7 @@ export async function logPermissionChange(
     resourceType: ResourceType,
     resourceId: string,
     userId: string,
-    teamId: string,
+    dataRoomId: string,
     metadata: {
         previousPermissions?: any;
         newPermissions?: any;
@@ -145,7 +145,7 @@ export async function logPermissionChange(
         resourceType,
         resourceId,
         userId,
-        teamId,
+        dataRoomId,
         metadata,
         request,
     });

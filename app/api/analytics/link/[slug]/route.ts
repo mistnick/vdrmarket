@@ -34,7 +34,7 @@ export async function GET(
             include: {
                 document: {
                     include: {
-                        team: true,
+                        dataRoom: true,
                     },
                 },
                 creator: {
@@ -54,10 +54,12 @@ export async function GET(
             );
         }
 
-        // Check if user has access to this link's team
-        const hasAccess = await prisma.teamMember.findFirst({
+        // Check if user has access to this link's data room via GroupMember
+        const hasAccess = await prisma.groupMember.findFirst({
             where: {
-                teamId: link.document.teamId,
+                group: {
+                    dataRoomId: link.document.dataRoomId,
+                },
                 user: {
                     email: session.email,
                 },

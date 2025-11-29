@@ -19,8 +19,8 @@ async function main() {
             password: 'Admin123!',
             name: 'Admin User',
             role: 'owner' as const,
-            teamName: 'Admin Team',
-            teamSlug: 'admin-team',
+            dataRoomName: 'Admin DataRoom',
+            dataRoomSlug: 'admin-dataroom',
             plan: 'enterprise' as const,
         },
         {
@@ -28,8 +28,8 @@ async function main() {
             password: 'Manager123!',
             name: 'Manager User',
             role: 'admin' as const,
-            teamName: 'Manager Team',
-            teamSlug: 'manager-team',
+            dataRoomName: 'Manager DataRoom',
+            dataRoomSlug: 'manager-dataroom',
             plan: 'professional' as const,
         },
         {
@@ -37,8 +37,8 @@ async function main() {
             password: 'User123!',
             name: 'Regular User',
             role: 'member' as const,
-            teamName: 'User Team',
-            teamSlug: 'user-team',
+            dataRoomName: 'User DataRoom',
+            dataRoomSlug: 'user-dataroom',
             plan: 'free' as const,
         },
         {
@@ -46,14 +46,14 @@ async function main() {
             password: 'Viewer123!',
             name: 'Viewer User',
             role: 'viewer' as const,
-            teamName: 'Viewer Team',
-            teamSlug: 'viewer-team',
+            dataRoomName: 'Viewer DataRoom',
+            dataRoomSlug: 'viewer-dataroom',
             plan: 'free' as const,
         },
     ];
 
     try {
-        console.log('\n📝 Creating test users and teams...\n');
+        console.log('\n📝 Creating test users and data rooms...\n');
 
         for (const userData of testUsers) {
             // Check if user already exists
@@ -85,16 +85,21 @@ async function main() {
                 },
             });
 
-            // Create team for user
-            const team = await prisma.team.create({
+            // Create data room with admin group for user
+            const dataRoom = await prisma.dataRoom.create({
                 data: {
-                    name: userData.teamName,
-                    slug: userData.teamSlug,
-                    plan: userData.plan,
-                    members: {
+                    name: userData.dataRoomName,
+                    slug: userData.dataRoomSlug,
+                    groups: {
                         create: {
-                            userId: user.id,
-                            role: userData.role,
+                            name: 'Administrators',
+                            type: 'ADMINISTRATOR',
+                            members: {
+                                create: {
+                                    userId: user.id,
+                                    role: userData.role,
+                                },
+                            },
                         },
                     },
                 },
@@ -103,7 +108,7 @@ async function main() {
             console.log(`✅ Created user: ${user.email}`);
             console.log(`   Name: ${user.name}`);
             console.log(`   Password: ${userData.password}`);
-            console.log(`   Team: ${team.name} (${team.plan})`);
+            console.log(`   DataRoom: ${dataRoom.name}`);
             console.log(`   Role: ${userData.role}\n`);
         }
 

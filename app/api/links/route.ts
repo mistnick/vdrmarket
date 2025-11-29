@@ -10,7 +10,7 @@ import { AuditService } from "@/lib/audit/audit-service";
 export async function GET(request: Request) {
   try {
     const session = await getSession();
-    if (!session || !session?.email) {
+    if (!session?.userId) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 }
@@ -19,30 +19,23 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const documentId = searchParams.get("documentId");
-    const teamId = searchParams.get("teamId");
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.email },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: "User not found" },
-        { status: 404 }
-      );
-    }
+    const dataRoomId = searchParams.get("dataRoomId");
 
     let where: any = {};
 
     if (documentId) {
-      // Check if user has access to the document
+      // Check if user has access to the document via GroupMember
       const document = await prisma.document.findFirst({
         where: {
           id: documentId,
-          team: {
-            members: {
+          dataRoom: {
+            groups: {
               some: {
-                userId: user.id,
+                members: {
+                  some: {
+                    userId: session.userId,
+                  },
+                },
               },
             },
           },
@@ -58,15 +51,19 @@ export async function GET(request: Request) {
       where.documentId = documentId;
     } else {
       // Get all links for documents the user has access to
-      // Optionally filter by teamId if provided
+      // Optionally filter by dataRoomId if provided
       where.document = {
-        team: {
-          members: {
+        dataRoom: {
+          groups: {
             some: {
-              userId: user.id,
+              members: {
+                some: {
+                  userId: session.userId,
+                },
+              },
             },
           },
-          ...(teamId ? { id: teamId } : {}),
+          ...(dataRoomId ? { id: dataRoomId } : {}),
         },
       };
     }
@@ -104,7 +101,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await getSession();
-    if (!session || !session?.email) {
+    if (!session?.userId) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 }
@@ -136,8 +133,9 @@ export async function POST(request: Request) {
       );
     }
 
+    // Get user info
     const user = await prisma.user.findUnique({
-      where: { email: session.email },
+      where: { id: session.userId },
     });
 
     if (!user) {
@@ -147,14 +145,18 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check document access
+    // Check document access via GroupMember
     const document = await prisma.document.findFirst({
       where: {
         id: documentId,
-        team: {
-          members: {
+        dataRoom: {
+          groups: {
             some: {
-              userId: user.id,
+              members: {
+                some: {
+                  userId: session.userId,
+                },
+              },
             },
           },
         },
@@ -198,7 +200,7 @@ export async function POST(request: Request) {
       data: {
         slug,
         documentId,
-        createdBy: user.id,
+        createdBy: session.userId,
         name,
         description,
         password: hashedPassword,
@@ -227,8 +229,8 @@ export async function POST(request: Request) {
 
     // Log audit event
     await AuditService.log({
-      teamId: document.teamId,
-      userId: user.id,
+      dataRoomId: document.dataRoomId,
+      userId: session.userId,
       action: "shared",
       resourceType: "link",
       resourceId: link.id,

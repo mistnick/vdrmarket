@@ -23,27 +23,20 @@ export async function GET(
             );
         }
 
-        // Get the document
+        // Get the document via GroupMember access
         const document = await prisma.document.findFirst({
             where: {
                 id: documentId,
                 OR: [
                     { ownerId: session.userId },
                     {
-                        team: {
-                            members: {
-                                some: {
-                                    userId: session.userId,
-                                },
-                            },
-                        },
-                    },
-                    {
                         dataRoom: {
-                            team: {
-                                members: {
-                                    some: {
-                                        userId: session.userId,
+                            groups: {
+                                some: {
+                                    members: {
+                                        some: {
+                                            userId: session.userId,
+                                        },
                                     },
                                 },
                             },
@@ -63,7 +56,7 @@ export async function GET(
         // Log audit event
         await AuditService.log({
             userId: session.userId,
-            teamId: document.teamId,
+            dataRoomId: document.dataRoomId,
             action: "viewed",
             resourceType: "document",
             resourceId: document.id,

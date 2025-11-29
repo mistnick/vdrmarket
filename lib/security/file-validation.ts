@@ -262,7 +262,7 @@ export async function validateFile(
  * Uses UUID to prevent enumeration and path traversal
  */
 export function generateSecureStorageKey(
-    teamId: string,
+    dataRoomId: string,
     originalFilename: string,
     fileType: 'document' | 'version' = 'document'
 ): string {
@@ -273,11 +273,13 @@ export function generateSecureStorageKey(
     const baseName = path.basename(sanitizedName, ext);
 
     // Create safe filename: timestamp-random-sanitizedname.ext
-    const safeFilename = `${timestamp}-${randomSuffix}-${baseName}${ext}`;
+    // Replace spaces with dashes to ensure URL safety and S3 compatibility
+    const safeBaseName = baseName.replace(/\s+/g, '-');
+    const safeFilename = `${timestamp}-${randomSuffix}-${safeBaseName}${ext}`;
 
     if (fileType === 'version') {
-        return `teams/${teamId}/versions/${safeFilename}`;
+        return `datarooms/${dataRoomId}/versions/${safeFilename}`;
     }
 
-    return `teams/${teamId}/documents/${safeFilename}`;
+    return `datarooms/${dataRoomId}/documents/${safeFilename}`;
 }

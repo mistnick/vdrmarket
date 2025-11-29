@@ -28,14 +28,12 @@ import { toast } from "sonner";
 interface CreateDataRoomDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    teamId: string;
     onSuccess?: () => void;
 }
 
 export function CreateDataRoomDialog({
     open,
     onOpenChange,
-    teamId,
     onSuccess,
 }: CreateDataRoomDialogProps) {
     const router = useRouter();
@@ -112,7 +110,6 @@ export function CreateDataRoomDialog({
                 body: JSON.stringify({
                     name: formData.name.trim(),
                     description: formData.description.trim() || undefined,
-                    teamId,
                     isPublic: formData.isPublic,
                     password: formData.requirePassword ? formData.password : undefined,
                 }),

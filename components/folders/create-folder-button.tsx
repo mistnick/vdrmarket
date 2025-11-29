@@ -18,17 +18,17 @@ import { FolderPlus, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface CreateFolderButtonProps {
-    teams: Array<{ id: string; name: string }>;
+    dataRooms: Array<{ id: string; name: string }>;
 }
 
-export function CreateFolderButton({ teams }: CreateFolderButtonProps) {
+export function CreateFolderButton({ dataRooms }: CreateFolderButtonProps) {
     const router = useRouter();
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         name: '',
-        teamId: teams[0]?.id || '',
+        dataRoomId: dataRooms[0]?.id || '',
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -52,7 +52,7 @@ export function CreateFolderButton({ teams }: CreateFolderButtonProps) {
             }
 
             setOpen(false);
-            setFormData({ name: '', teamId: teams[0]?.id || '' });
+            setFormData({ name: '', dataRoomId: dataRooms[0]?.id || '' });
             router.refresh();
         } catch (err: any) {
             setError(err.message);
@@ -61,7 +61,7 @@ export function CreateFolderButton({ teams }: CreateFolderButtonProps) {
         }
     };
 
-    if (teams.length === 0) {
+    if (dataRooms.length === 0) {
         return null;
     }
 
@@ -93,21 +93,21 @@ export function CreateFolderButton({ teams }: CreateFolderButtonProps) {
                                 disabled={loading}
                             />
                         </div>
-                        {teams.length > 1 && (
+                        {dataRooms.length > 1 && (
                             <div className="space-y-2">
-                                <Label htmlFor="team">Team</Label>
+                                <Label htmlFor="dataRoom">Data Room</Label>
                                 <Select
-                                    value={formData.teamId}
-                                    onValueChange={(value) => setFormData(prev => ({ ...prev, teamId: value }))}
+                                    value={formData.dataRoomId}
+                                    onValueChange={(value) => setFormData(prev => ({ ...prev, dataRoomId: value }))}
                                     disabled={loading}
                                 >
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Select a team" />
+                                        <SelectValue placeholder="Select a data room" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {teams.map((team) => (
-                                            <SelectItem key={team.id} value={team.id}>
-                                                {team.name}
+                                        {dataRooms.map((dataRoom) => (
+                                            <SelectItem key={dataRoom.id} value={dataRoom.id}>
+                                                {dataRoom.name}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>

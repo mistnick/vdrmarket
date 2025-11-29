@@ -29,9 +29,9 @@ import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { Checkbox } from "@/components/ui/checkbox";
 
-interface TeamMember {
+interface GroupMember {
     id: string;
-    teamId: string;
+    groupId: string;
     userId: string;
     role: string;
     createdAt: string;
@@ -42,21 +42,24 @@ interface TeamMember {
         image: string | null;
         createdAt: string;
     };
+    group: {
+        id: string;
+        name: string;
+        type: string;
+        dataRoomId: string;
+    };
 }
 
-interface TeamInvitation {
+interface DataRoom {
     id: string;
-    email: string;
-    role: string;
-    createdAt: string;
-    expiresAt: string;
+    name: string;
 }
 
 export default function UsersSettingsPage() {
-    const [members, setMembers] = useState<TeamMember[]>([]);
-    const [invitations, setInvitations] = useState<TeamInvitation[]>([]);
+    const [members, setMembers] = useState<GroupMember[]>([]);
+    const [dataRooms, setDataRooms] = useState<DataRoom[]>([]);
+    const [selectedDataRoom, setSelectedDataRoom] = useState<string>("");
     const [loading, setLoading] = useState(true);
-    const [teamId, setTeamId] = useState<string>("");
     const [permissionsDialog, setPermissionsDialog] = useState<{
         open: boolean;
         userId: string;
@@ -69,77 +72,64 @@ export default function UsersSettingsPage() {
     const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
     useEffect(() => {
-        async function fetchTeam() {
+        async function fetchDataRooms() {
             try {
-                const response = await fetch("/api/teams/current");
+                const response = await fetch("/api/datarooms");
                 if (response.ok) {
                     const result = await response.json();
-                    setTeamId(result.id || "");
+                    setDataRooms(result.data || []);
+                    if (result.data?.length > 0) {
+                        setSelectedDataRoom(result.data[0].id);
+                    }
                 }
             } catch (error) {
-                console.error("Error fetching team:", error);
+                console.error("Error fetching data rooms:", error);
             }
         }
-        fetchTeam();
+        fetchDataRooms();
     }, []);
 
     useEffect(() => {
-        if (teamId) {
+        if (selectedDataRoom) {
             fetchMembers();
-            fetchInvitations();
         }
-    }, [teamId]);
+    }, [selectedDataRoom]);
 
     const fetchMembers = async () => {
-        if (!teamId) return;
+        if (!selectedDataRoom) return;
 
         try {
             setLoading(true);
-            const response = await fetch(`/api/teams/${teamId}/members`);
+            const response = await fetch(`/api/datarooms/\${selectedDataRoom}/members`);
             if (response.ok) {
                 const data = await response.json();
-                setMembers(data.data);
+                setMembers(data.data || []);
             } else {
-                toast.error("Failed to fetch team members");
+                toast.error("Failed to fetch members");
             }
         } catch (error) {
             console.error("Error fetching members:", error);
-            toast.error("Failed to fetch team members");
+            toast.error("Failed to fetch members");
         } finally {
             setLoading(false);
         }
     };
 
-    const fetchInvitations = async () => {
-        if (!teamId) return;
-
+    const updateMemberRole = async (memberId: string, newRole: string) => {
         try {
-            const response = await fetch(`/api/teams/${teamId}/invites`);
-            if (response.ok) {
-                const data = await response.json();
-                setInvitations(data.invitations);
-            }
-        } catch (error) {
-            console.error("Error fetching invitations:", error);
-        }
-    };
-
-    const updateMemberRole = async (userId: string, newRole: string) => {
-        try {
-            const response = await fetch(`/api/teams/${teamId}/members`, {
+            const response = await fetch(`/api/datarooms/\${selectedDataRoom}/members/\${memberId}`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    userId,
                     role: newRole,
                 }),
             });
 
             if (response.ok) {
                 toast.success("Role updated successfully");
-                fetchMembers(); // Refresh the list
+                fetchMembers();
             } else {
                 const error = await response.json();
                 toast.error(error.error || "Failed to update role");
@@ -150,29 +140,16 @@ export default function UsersSettingsPage() {
         }
     };
 
-    const deleteMembers = async (rows: TeamMember[]) => {
-        // In a real app, you would probably want a confirmation dialog here
-        // or handle bulk delete in the API. For now, we'll iterate.
-        // NOTE: Be careful with deleting yourself or the owner.
-
+    const deleteMembers = async (rows: GroupMember[]) => {
         let successCount = 0;
         for (const member of rows) {
             if (member.role === 'owner') {
-                toast.error(`Cannot remove owner: ${member.user.email}`);
+                toast.error(`Cannot remove owner: \${member.user.email}`);
                 continue;
             }
-            // Call API to remove member (assuming endpoint exists or using existing logic)
-            // For this example, we'll simulate or use a hypothetical endpoint
-            // The existing code had a "Remove from Team" button but no implementation shown in the snippet
-            // We will assume a DELETE endpoint exists or we'd need to create it.
-            // Given the previous code just had the button, I'll implement a basic fetch here.
 
             try {
-                // Assuming DELETE /api/teams/:id/members/:userId exists or similar
-                // If not, we might need to implement it. 
-                // Based on standard REST: DELETE /api/teams/{teamId}/members?userId={userId}
-
-                const response = await fetch(`/api/teams/${teamId}/members?userId=${member.userId}`, {
+                const response = await fetch(`/api/datarooms/\${selectedDataRoom}/members/\${member.id}`, {
                     method: 'DELETE',
                 });
 
@@ -185,33 +162,10 @@ export default function UsersSettingsPage() {
         }
 
         if (successCount > 0) {
-            toast.success(`Removed ${successCount} member(s)`);
+            toast.success(`Removed \${successCount} member(s)`);
             fetchMembers();
         }
     };
-
-    const deleteInvitations = async (rows: TeamInvitation[]) => {
-        let successCount = 0;
-        for (const invite of rows) {
-            try {
-                const response = await fetch(`/api/teams/${teamId}/invites/${invite.id}`, {
-                    method: 'DELETE',
-                });
-
-                if (response.ok) {
-                    successCount++;
-                }
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        if (successCount > 0) {
-            toast.success(`Revoked ${successCount} invitation(s)`);
-            fetchInvitations();
-        }
-    };
-
 
     const getRoleBadgeColor = (role: string) => {
         switch (role) {
@@ -240,7 +194,7 @@ export default function UsersSettingsPage() {
         return email[0].toUpperCase();
     };
 
-    const memberColumns: ColumnDef<TeamMember>[] = [
+    const memberColumns: ColumnDef<GroupMember>[] = [
         {
             id: "select",
             header: ({ table }) => (
@@ -261,7 +215,7 @@ export default function UsersSettingsPage() {
             enableHiding: false,
         },
         {
-            accessorKey: "user.email", // Use email for searching
+            accessorKey: "user.email",
             header: ({ column }) => {
                 return (
                     <Button
@@ -295,6 +249,16 @@ export default function UsersSettingsPage() {
             },
         },
         {
+            accessorKey: "group.name",
+            header: "Group",
+            cell: ({ row }) => {
+                const member = row.original;
+                return (
+                    <Badge variant="outline">{member.group.name}</Badge>
+                );
+            },
+        },
+        {
             accessorKey: "role",
             header: "Role",
             cell: ({ row }) => {
@@ -303,7 +267,7 @@ export default function UsersSettingsPage() {
                     <Select
                         value={member.role}
                         onValueChange={(value) =>
-                            updateMemberRole(member.userId, value)
+                            updateMemberRole(member.id, value)
                         }
                     >
                         <SelectTrigger className="w-[120px] h-7 border-none shadow-none">
@@ -372,107 +336,10 @@ export default function UsersSettingsPage() {
                                     onClick={() => deleteMembers([member])}
                                 >
                                     <Trash2 className="mr-2 h-4 w-4" />
-                                    Remove from Team
+                                    Remove Member
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
-                    </div>
-                );
-            },
-        },
-    ];
-
-    const invitationColumns: ColumnDef<TeamInvitation>[] = [
-        {
-            id: "select",
-            header: ({ table }) => (
-                <Checkbox
-                    checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
-                    onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-                    aria-label="Select all"
-                />
-            ),
-            cell: ({ row }) => (
-                <Checkbox
-                    checked={row.getIsSelected()}
-                    onCheckedChange={(value) => row.toggleSelected(!!value)}
-                    aria-label="Select row"
-                />
-            ),
-            enableSorting: false,
-            enableHiding: false,
-        },
-        {
-            accessorKey: "email",
-            header: ({ column }) => {
-                return (
-                    <Button
-                        variant="ghost"
-                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    >
-                        Email
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                )
-            },
-            cell: ({ row }) => <span className="font-medium">{row.getValue("email")}</span>,
-        },
-        {
-            accessorKey: "role",
-            header: "Role",
-            cell: ({ row }) => (
-                <Badge
-                    variant="secondary"
-                    className={getRoleBadgeColor(row.getValue("role"))}
-                >
-                    {row.getValue("role")}
-                </Badge>
-            ),
-        },
-        {
-            accessorKey: "createdAt",
-            header: "Sent",
-            cell: ({ row }) => (
-                <span className="text-muted-foreground text-xs">
-                    {formatDistanceToNow(new Date(row.getValue("createdAt")), {
-                        addSuffix: true,
-                    })}
-                </span>
-            ),
-        },
-        {
-            accessorKey: "expiresAt",
-            header: "Expires",
-            cell: ({ row }) => (
-                <span className="text-muted-foreground text-xs">
-                    {formatDistanceToNow(new Date(row.getValue("expiresAt")), {
-                        addSuffix: true,
-                    })}
-                </span>
-            ),
-        },
-        {
-            id: "status",
-            header: "Status",
-            cell: () => (
-                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                    Pending
-                </Badge>
-            ),
-        },
-        {
-            id: "actions",
-            cell: ({ row }) => {
-                return (
-                    <div className="text-right">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => deleteInvitations([row.original])}
-                        >
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
                     </div>
                 );
             },
@@ -489,24 +356,46 @@ export default function UsersSettingsPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Users & Permissions"
-                description="Manage team members and their access levels"
+                description="Manage data room members and their access levels"
                 breadcrumbs={breadcrumbs}
             />
+
+            {/* Data Room Selector */}
+            <Card className="border-border/60 shadow-sm">
+                <CardContent className="pt-6">
+                    <div className="flex items-center gap-4">
+                        <span className="text-sm font-medium">Select Data Room:</span>
+                        <Select value={selectedDataRoom} onValueChange={setSelectedDataRoom}>
+                            <SelectTrigger className="w-64">
+                                <SelectValue placeholder="Select a data room" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {dataRooms.map((dr) => (
+                                    <SelectItem key={dr.id} value={dr.id}>
+                                        {dr.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </CardContent>
+            </Card>
 
             <Card className="border-border/60 shadow-sm">
                 <CardHeader>
                     <div className="flex items-center justify-between">
                         <CardTitle className="flex items-center gap-2">
                             <Users className="h-5 w-5" />
-                            Team Members ({members.length})
+                            Members ({members.length})
                         </CardTitle>
                         <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setInviteDialogOpen(true)}
+                            disabled={!selectedDataRoom}
                         >
                             <UserCog className="mr-2 h-4 w-4" />
-                            Invite Member
+                            Add Member
                         </Button>
                     </div>
                 </CardHeader>
@@ -527,27 +416,6 @@ export default function UsersSettingsPage() {
                 </CardContent>
             </Card>
 
-            {/* Pending Invitations */}
-            {invitations.length > 0 && (
-                <Card className="border-border/60 shadow-sm">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-base">
-                            <Mail className="h-4 w-4" />
-                            Pending Invitations ({invitations.length})
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <DataTable
-                            columns={invitationColumns}
-                            data={invitations}
-                            searchKey="email"
-                            onDelete={deleteInvitations}
-                            deleteLabel="Revoke"
-                        />
-                    </CardContent>
-                </Card>
-            )}
-
             {/* Manage Permissions Dialog */}
             <ManagePermissionsDialog
                 open={permissionsDialog.open}
@@ -556,17 +424,16 @@ export default function UsersSettingsPage() {
                 }
                 userId={permissionsDialog.userId}
                 userName={permissionsDialog.userName}
-                teamId={teamId}
+                dataRoomId={selectedDataRoom}
             />
 
             {/* Invite Member Dialog */}
             <InviteMemberDialog
                 open={inviteDialogOpen}
                 onOpenChange={setInviteDialogOpen}
-                teamId={teamId}
+                dataRoomId={selectedDataRoom}
                 onInviteSuccess={() => {
                     fetchMembers();
-                    fetchInvitations();
                 }}
             />
         </div>

@@ -9,7 +9,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { getStorageProvider } from "@/lib/storage";
-import { nanoid } from "nanoid";
 import JSZip from "jszip";
 
 interface DownloadArchiveRequest {
@@ -55,27 +54,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch all documents the user has access to
+    // Fetch all documents the user has access to via GroupMember
     const documents = await prisma.document.findMany({
       where: {
         id: { in: Array.from(allDocumentIds) },
         OR: [
           { ownerId: session.userId },
           {
-            team: {
-              members: {
-                some: {
-                  userId: session.userId,
-                },
-              },
-            },
-          },
-          {
             dataRoom: {
-              team: {
-                members: {
-                  some: {
-                    userId: session.userId,
+              groups: {
+                some: {
+                  members: {
+                    some: {
+                      userId: session.userId,
+                    },
                   },
                 },
               },
@@ -89,6 +81,11 @@ export async function POST(request: NextRequest) {
             id: true,
             name: true,
             path: true,
+          },
+        },
+        dataRoom: {
+          select: {
+            id: true,
           },
         },
       },
@@ -172,9 +169,8 @@ export async function POST(request: NextRequest) {
     // Create audit log
     await prisma.auditLog.create({
       data: {
-        id: nanoid(),
         userId: session.userId,
-        teamId: documents[0].teamId,
+        dataRoomId: documents[0].dataRoomId,
         action: "DOCUMENTS_ARCHIVE_DOWNLOAD",
         resourceType: "document",
         resourceId: "multiple",
@@ -214,28 +210,19 @@ async function getDocumentsInFolders(
 ): Promise<string[]> {
   const documentIds: string[] = [];
 
-  // Get folders with their documents and children
+  // Get folders with their documents and children via GroupMember access
   const folders = await prisma.folder.findMany({
     where: {
       id: { in: folderIds },
-      OR: [
-        {
-          team: {
+      dataRoom: {
+        groups: {
+          some: {
             members: {
               some: { userId },
             },
           },
         },
-        {
-          dataRoom: {
-            team: {
-              members: {
-                some: { userId },
-              },
-            },
-          },
-        },
-      ],
+      },
     },
     include: {
       documents: {

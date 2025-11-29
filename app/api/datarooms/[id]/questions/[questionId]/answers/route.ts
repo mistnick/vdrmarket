@@ -30,26 +30,23 @@ export async function POST(
         // Get question and verify access
         const question = await prisma.question.findUnique({
             where: { id: questionId },
-            include: {
-                dataRoom: {
-                    include: {
-                        team: {
-                            include: {
-                                members: {
-                                    where: { userId: user.id },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
         });
 
         if (!question || question.dataRoomId !== dataRoomId) {
             return NextResponse.json({ error: "Question not found" }, { status: 404 });
         }
 
-        if (question.dataRoom.team.members.length === 0) {
+        // Check access via GroupMember
+        const memberAccess = await prisma.groupMember.findFirst({
+            where: {
+                userId: user.id,
+                group: {
+                    dataRoomId,
+                },
+            },
+        });
+
+        if (!memberAccess) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 

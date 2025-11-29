@@ -210,11 +210,11 @@ export function getRedisClient(): Redis | null {
 export const CacheKeys = {
     user: (userId: string) => `user:${userId}`,
     document: (documentId: string) => `document:${documentId}`,
-    documentList: (teamId: string, folderId?: string) =>
-        `documents:${teamId}${folderId ? `:${folderId}` : ""}`,
+    documentList: (dataRoomId: string, folderId?: string) =>
+        `documents:${dataRoomId}${folderId ? `:${folderId}` : ""}`,
     permissions: (userId: string, resourceId: string) =>
         `permissions:${userId}:${resourceId}`,
-    tags: (teamId: string) => `tags:${teamId}`,
+    tags: (dataRoomId: string) => `tags:${dataRoomId}`,
     metadata: (documentId: string) => `metadata:${documentId}`,
     notifications: (userId: string) => `notifications:${userId}`,
     unreadCount: (userId: string) => `notifications:unread:${userId}`,

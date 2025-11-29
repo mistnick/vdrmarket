@@ -1,36 +1,45 @@
 // Type definitions for the application
 
-import { User, Team, Document, Folder, Link, DataRoom } from "@prisma/client";
+import { User, Document, Folder, Link, DataRoom, Group, GroupMember } from "@prisma/client";
 
 // Extended User type with relations
 export type UserWithRelations = User & {
-  teams?: TeamWithMembers[];
+  groupMemberships?: GroupMemberWithGroup[];
   documents?: Document[];
 };
 
-// Extended Team type with relations
-export type TeamWithMembers = Team & {
-  members?: TeamMemberWithUser[];
+// Extended DataRoom type with relations
+export type DataRoomWithGroups = DataRoom & {
+  groups?: GroupWithMembers[];
   documents?: Document[];
   folders?: Folder[];
-  dataRooms?: DataRoom[];
+  _count?: {
+    documents: number;
+    folders: number;
+    groups: number;
+  };
 };
 
-// Team member with user details
-export type TeamMemberWithUser = {
-  id: string;
-  role: string;
-  createdAt: Date;
-  updatedAt: Date;
+// Group with members
+export type GroupWithMembers = Group & {
+  members?: GroupMemberWithUser[];
+};
+
+// Group member with user details
+export type GroupMemberWithUser = GroupMember & {
   user: User;
+};
+
+// Group member with group details
+export type GroupMemberWithGroup = GroupMember & {
+  group: Group;
 };
 
 // Document with relations
 export type DocumentWithRelations = Document & {
   owner?: User;
-  team?: Team;
-  folder?: Folder;
   dataRoom?: DataRoom;
+  folder?: Folder;
   links?: Link[];
   _count?: {
     views: number;
@@ -100,7 +109,7 @@ export type DocumentAnalytics = ViewAnalytics & {
 };
 
 // Permission types
-export type TeamRole = "owner" | "admin" | "member" | "viewer";
+export type GroupRole = "owner" | "admin" | "member" | "viewer";
 export type DataRoomPermission = "viewer" | "editor" | "admin";
 
 // Audit log types
@@ -119,5 +128,5 @@ export type AuditResourceType =
   | "folder"
   | "link"
   | "dataroom"
-  | "team"
+  | "group"
   | "user";

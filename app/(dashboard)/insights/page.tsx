@@ -1,8 +1,11 @@
+"use client";
+
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3, TrendingUp, Users, FileText } from "lucide-react";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 
-export default function InsightsPage() {
+function InsightsContent() {
   return (
     <div className="space-y-6">
       <PageHeader
@@ -108,5 +111,16 @@ export default function InsightsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function InsightsPage() {
+  return (
+    <PermissionGuard
+      requiredPermission={(p) => p.isAdministrator || p.canViewGroupActivity}
+      fallbackMessage="Non hai i permessi per visualizzare le statistiche. Questa funzionalità è riservata agli amministratori."
+    >
+      <InsightsContent />
+    </PermissionGuard>
   );
 }

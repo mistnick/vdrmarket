@@ -25,21 +25,17 @@ export async function GET(
             where: { email: session.email },
         });
 
-        // Check access to data room
-        const dataRoom = await prisma.dataRoom.findFirst({
+        // Check access to data room via GroupMember
+        const memberAccess = await prisma.groupMember.findFirst({
             where: {
-                id,
-                team: {
-                    members: {
-                        some: {
-                            userId: user?.id,
-                        },
-                    },
+                userId: user?.id,
+                group: {
+                    dataRoomId: id,
                 },
             },
         });
 
-        if (!dataRoom) {
+        if (!memberAccess) {
             return NextResponse.json(
                 { success: false, error: "Data room not found or access denied" },
                 { status: 404 }
@@ -115,21 +111,17 @@ export async function POST(
             where: { email: session.email },
         });
 
-        // Check access to data room
-        const dataRoom = await prisma.dataRoom.findFirst({
+        // Check access to data room via GroupMember
+        const memberAccess = await prisma.groupMember.findFirst({
             where: {
-                id,
-                team: {
-                    members: {
-                        some: {
-                            userId: user?.id,
-                        },
-                    },
+                userId: user?.id,
+                group: {
+                    dataRoomId: id,
                 },
             },
         });
 
-        if (!dataRoom) {
+        if (!memberAccess) {
             return NextResponse.json(
                 { success: false, error: "Data room not found or access denied" },
                 { status: 404 }
@@ -151,7 +143,6 @@ export async function POST(
         const folder = await prisma.folder.create({
             data: {
                 name,
-                teamId: dataRoom.teamId,
                 ownerId: user!.id,
                 parentId: parentId || null,
                 dataRoomId: id,
@@ -170,7 +161,7 @@ export async function POST(
         // Log audit
         await prisma.auditLog.create({
             data: {
-                teamId: dataRoom.teamId,
+                dataRoomId: id,
                 userId: user!.id,
                 action: "created",
                 resourceType: "folder",

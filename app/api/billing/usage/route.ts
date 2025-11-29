@@ -10,37 +10,49 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
 
-    if (!session?.userId) {
+    if (!session?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get user's team
-    const teamMember = await prisma.teamMember.findFirst({
+    const user = await prisma.user.findUnique({
+      where: { email: session.email },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Get user's data room memberships
+    const membership = await prisma.groupMember.findFirst({
       where: {
-        userId: session.userId,
+        userId: user.id,
       },
       include: {
-        team: true,
+        group: {
+          include: {
+            dataRoom: true,
+          },
+        },
       },
     });
 
-    if (!teamMember) {
-      return NextResponse.json({ error: "Team not found" }, { status: 404 });
+    if (!membership) {
+      return NextResponse.json({ error: "Data room not found" }, { status: 404 });
     }
 
-    const teamId = teamMember.teamId;
+    const dataRoomId = membership.group.dataRoomId;
 
     // Get document count
     const documentCount = await prisma.document.count({
       where: {
-        teamId,
+        dataRoomId,
       },
     });
 
     // Get total storage used (sum of file sizes)
     const storageResult = await prisma.document.aggregate({
       where: {
-        teamId,
+        dataRoomId,
       },
       _sum: {
         fileSize: true,
@@ -60,7 +72,7 @@ export async function GET(request: NextRequest) {
         },
         link: {
           document: {
-            teamId,
+            dataRoomId,
           },
         },
       },

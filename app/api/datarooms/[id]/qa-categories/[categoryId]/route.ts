@@ -26,29 +26,22 @@ export async function PATCH(
             return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
-        // Verify category ownership
-        const category = await prisma.qACategory.findUnique({
-            where: { id: categoryId },
-            include: {
-                dataRoom: {
-                    include: {
-                        team: {
-                            include: {
-                                members: {
-                                    where: { userId: user.id },
-                                },
-                            },
-                        },
-                    },
+        // Verify access via GroupMember
+        const memberAccess = await prisma.groupMember.findFirst({
+            where: {
+                userId: user.id,
+                group: {
+                    dataRoomId,
                 },
             },
         });
 
-        if (
-            !category ||
-            category.dataRoomId !== dataRoomId ||
-            category.dataRoom.team.members.length === 0
-        ) {
+        // Verify category exists in the data room
+        const category = await prisma.qACategory.findUnique({
+            where: { id: categoryId },
+        });
+
+        if (!category || category.dataRoomId !== dataRoomId || !memberAccess) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
@@ -107,29 +100,22 @@ export async function DELETE(
             return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
-        // Verify category ownership
-        const category = await prisma.qACategory.findUnique({
-            where: { id: categoryId },
-            include: {
-                dataRoom: {
-                    include: {
-                        team: {
-                            include: {
-                                members: {
-                                    where: { userId: user.id },
-                                },
-                            },
-                        },
-                    },
+        // Verify access via GroupMember
+        const memberAccess = await prisma.groupMember.findFirst({
+            where: {
+                userId: user.id,
+                group: {
+                    dataRoomId,
                 },
             },
         });
 
-        if (
-            !category ||
-            category.dataRoomId !== dataRoomId ||
-            category.dataRoom.team.members.length === 0
-        ) {
+        // Verify category exists in the data room
+        const category = await prisma.qACategory.findUnique({
+            where: { id: categoryId },
+        });
+
+        if (!category || category.dataRoomId !== dataRoomId || !memberAccess) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 

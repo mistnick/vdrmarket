@@ -11,7 +11,7 @@ export async function GET(
   try {
     const { slug } = await params;
     const session = await getSession();
-    if (!session || !session?.email) {
+    if (!session?.userId) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 }
@@ -21,7 +21,11 @@ export async function GET(
     const link = await prisma.link.findUnique({
       where: { slug: slug },
       include: {
-        document: true,
+        document: {
+          include: {
+            dataRoom: true,
+          },
+        },
         creator: true,
         allowedEmails: true,
         _count: {
@@ -39,15 +43,13 @@ export async function GET(
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.email },
-    });
-
-    // Check access
-    const hasAccess = await prisma.teamMember.findFirst({
+    // Check access via GroupMember
+    const hasAccess = await prisma.groupMember.findFirst({
       where: {
-        userId: user?.id,
-        teamId: link.document.teamId,
+        userId: session.userId,
+        group: {
+          dataRoomId: link.document.dataRoomId,
+        },
       },
     });
 
@@ -79,7 +81,7 @@ export async function PATCH(
   try {
     const { slug } = await params;
     const session = await getSession();
-    if (!session || !session?.email) {
+    if (!session?.userId) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 }
@@ -101,10 +103,6 @@ export async function PATCH(
       allowedEmails,
     } = body;
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.email },
-    });
-
     const link = await prisma.link.findUnique({
       where: { slug: slug },
       include: {
@@ -119,11 +117,14 @@ export async function PATCH(
       );
     }
 
-    // Check access
-    const hasAccess = await prisma.teamMember.findFirst({
+    // Check access via GroupMember with edit permissions (ADMINISTRATOR group type)
+    const hasAccess = await prisma.groupMember.findFirst({
       where: {
-        userId: user?.id,
-        teamId: link.document.teamId,
+        userId: session.userId,
+        group: {
+          dataRoomId: link.document.dataRoomId,
+          type: "ADMINISTRATOR",
+        },
       },
     });
 
@@ -180,8 +181,8 @@ export async function PATCH(
     // Log audit event
     await prisma.auditLog.create({
       data: {
-        teamId: link.document.teamId,
-        userId: user!.id,
+        dataRoomId: link.document.dataRoomId,
+        userId: session.userId,
         action: "updated",
         resourceType: "link",
         resourceId: link.id,
@@ -213,16 +214,12 @@ export async function DELETE(
   try {
     const { slug } = await params;
     const session = await getSession();
-    if (!session || !session?.email) {
+    if (!session?.userId) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 }
       );
     }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.email },
-    });
 
     const link = await prisma.link.findUnique({
       where: { slug: slug },
@@ -238,11 +235,14 @@ export async function DELETE(
       );
     }
 
-    // Check access
-    const hasAccess = await prisma.teamMember.findFirst({
+    // Check access via GroupMember with delete permissions (ADMINISTRATOR group type)
+    const hasAccess = await prisma.groupMember.findFirst({
       where: {
-        userId: user?.id,
-        teamId: link.document.teamId,
+        userId: session.userId,
+        group: {
+          dataRoomId: link.document.dataRoomId,
+          type: "ADMINISTRATOR",
+        },
       },
     });
 
@@ -261,8 +261,8 @@ export async function DELETE(
     // Log audit event
     await prisma.auditLog.create({
       data: {
-        teamId: link.document.teamId,
-        userId: user!.id,
+        dataRoomId: link.document.dataRoomId,
+        userId: session.userId,
         action: "deleted",
         resourceType: "link",
         resourceId: link.id,

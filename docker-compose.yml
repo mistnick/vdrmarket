@@ -1,3 +1,9 @@
+# ==============================================================================
+# DataRoom VDR - Development Docker Compose
+# Version: 3.0.0 - DataRoom-based Architecture
+# Last Updated: 29 Novembre 2025
+# ==============================================================================
+
 services:
   # PostgreSQL Database
   postgres:
@@ -9,21 +15,16 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: dataroom
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
-      # Performance tuning
-      POSTGRES_SHARED_BUFFERS: "256MB"
-      POSTGRES_EFFECTIVE_CACHE_SIZE: "1GB"
-      POSTGRES_WORK_MEM: "16MB"
-      POSTGRES_MAINTENANCE_WORK_MEM: "128MB"
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres -d dataroom" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     command:
       - "postgres"
       - "-c"
@@ -43,9 +44,13 @@ services:
       - "-c"
       - "wal_buffers=16MB"
       - "-c"
-      - "min_wal_size=1GB"
+      - "min_wal_size=512MB"
       - "-c"
-      - "max_wal_size=4GB"
+      - "max_wal_size=2GB"
+      - "-c"
+      - "log_min_duration_statement=1000"
+    networks:
+      - dataroom-network
     deploy:
       resources:
         limits:
@@ -61,46 +66,46 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        NODE_ENV: production
+        NODE_ENV: development
     container_name: dataroom-app
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
+      # Node
+      NODE_ENV: development
+
       # Database
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/dataroom?schema=public&connection_limit=20&pool_timeout=10
-      NODE_ENV: production
 
-      # Authentication
+      # Authentication (Custom Session-based)
       NEXTAUTH_URL: http://localhost:3000
-      NEXTAUTH_SECRET: Sh0Ft+hpjBVy+9uPtUuJcaBp5nIKDbmuXx66sShRkPU=
-      AUTH_SECRET: Sh0Ft+hpjBVy+9uPtUuJcaBp5nIKDbmuXx66sShRkPU=
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-dev-secret-change-in-production-min-32-chars}
+      AUTH_SECRET: ${AUTH_SECRET:-dev-secret-change-in-production-min-32-chars}
       AUTH_TRUST_HOST: "true"
 
-      # Storage
+      # Storage (S3 Compatible - MinIO for development)
       STORAGE_PROVIDER: ${STORAGE_PROVIDER:-s3}
-
-      # AWS S3 / MinIO
       AWS_REGION: ${AWS_REGION:-us-east-1}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET:-dataroom}
       AWS_ENDPOINT: ${AWS_ENDPOINT:-http://minio:9000}
+      AWS_S3_FORCE_PATH_STYLE: "true"
       NEXT_PUBLIC_STORAGE_URL: ${NEXT_PUBLIC_STORAGE_URL:-http://localhost:9100}
-
-      # Azure Blob Storage (Optional)
-      AZURE_STORAGE_ACCOUNT_NAME: ${AZURE_STORAGE_ACCOUNT_NAME:-}
-      AZURE_STORAGE_ACCOUNT_KEY: ${AZURE_STORAGE_ACCOUNT_KEY:-}
-      AZURE_STORAGE_CONTAINER_NAME: ${AZURE_STORAGE_CONTAINER_NAME:-}
 
       # Redis
       REDIS_URL: redis://redis:6379
 
-      # Monitoring
-      NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
-
       # Application
       NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+      # Email Service (Resend)
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-DataRoom <onboarding@resend.dev>}
+
+      # Monitoring (Optional)
+      NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -110,14 +115,14 @@ services:
         condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    volumes:
-      - ./prisma:/app/prisma:ro
     healthcheck:
-      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1" ]
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
+    networks:
+      - dataroom-network
     deploy:
       resources:
         limits:
@@ -127,7 +132,7 @@ services:
           cpus: '0.5'
           memory: 512M
 
-  # MinIO (S3-compatible storage)
+  # MinIO (S3-compatible storage for development)
   minio:
     image: minio/minio:latest
     container_name: dataroom-minio
@@ -138,24 +143,17 @@ services:
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
-      # Performance optimizations
-      MINIO_CACHE: "on"
-      MINIO_CACHE_DRIVES: "/tmp/drive1"
-      MINIO_CACHE_EXCLUDE: "*.pdf"
-      MINIO_CACHE_QUOTA: 80
-      MINIO_CACHE_AFTER: 3
-      MINIO_CACHE_WATERMARK_LOW: 70
-      MINIO_CACHE_WATERMARK_HIGH: 90
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
-      - minio_cache:/tmp/drive1
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
-      interval: 45s
+      test: [ "CMD", "mc", "ready", "local" ]
+      interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
+    networks:
+      - dataroom-network
     deploy:
       resources:
         limits:
@@ -165,7 +163,7 @@ services:
           cpus: '0.25'
           memory: 256M
 
-  # Redis (Caching & WebSocket)
+  # Redis (Caching & Session Store)
   redis:
     image: redis:7-alpine
     container_name: dataroom-redis
@@ -174,13 +172,15 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --tcp-keepalive 300
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
-      timeout: 3s
-      retries: 3
+      timeout: 5s
+      retries: 5
       start_period: 5s
+    networks:
+      - dataroom-network
     deploy:
       resources:
         limits:
@@ -190,20 +190,14 @@ services:
           cpus: '0.1'
           memory: 128M
 
+networks:
+  dataroom-network:
+    driver: bridge
+
 volumes:
   postgres_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${PWD}/volumes/postgres
   minio_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${PWD}/volumes/minio
-  minio_cache:
     driver: local
   redis_data:
     driver: local

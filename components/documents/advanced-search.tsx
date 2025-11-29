@@ -34,7 +34,7 @@ interface SearchFilter {
 }
 
 interface AdvancedSearchProps {
-    teamId: string;
+    dataRoomId: string;
     onSearch: (query: string, filters: SearchFilter[]) => void;
 }
 
@@ -46,7 +46,7 @@ const FILE_TYPES = [
     { value: "image", label: "Images" },
 ];
 
-export function AdvancedSearch({ teamId, onSearch }: AdvancedSearchProps) {
+export function AdvancedSearch({ dataRoomId, onSearch }: AdvancedSearchProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [filters, setFilters] = useState<SearchFilter[]>([]);
     const [showFilters, setShowFilters] = useState(false);

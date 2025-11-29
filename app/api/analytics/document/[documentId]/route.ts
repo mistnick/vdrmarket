@@ -21,14 +21,18 @@ export async function GET(
       where: { email: session.email },
     });
 
-    // Check document access
+    // Check document access via GroupMember
     const document = await prisma.document.findFirst({
       where: {
         id: documentId,
-        team: {
-          members: {
+        dataRoom: {
+          groups: {
             some: {
-              userId: user?.id,
+              members: {
+                some: {
+                  userId: user?.id,
+                },
+              },
             },
           },
         },

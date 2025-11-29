@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
-import { getStorageProvider } from "@/lib/storage";
 import { createAuditLog } from "@/lib/auth/audit-logger";
 
 export async function POST(
@@ -13,50 +12,50 @@ export async function POST(
   try {
     const session = await getSession();
 
-    if (!session) {
+    if (!session?.userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { documentId, versionId } = await params;
 
-    // Get user
-    const user = await prisma.user.findUnique({
-      where: { email: session.email },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    // Get document and version
-    const [document, sourceVersion] = await Promise.all([
-      prisma.document.findUnique({
-        where: { id: documentId },
-        include: {
-          team: {
-            include: {
-              members: {
-                where: { userId: user.id },
+    // Get document and verify access via GroupMember (ADMINISTRATOR group type)
+    const document = await prisma.document.findFirst({
+      where: {
+        id: documentId,
+        OR: [
+          { ownerId: session.userId },
+          {
+            dataRoom: {
+              groups: {
+                some: {
+                  type: "ADMINISTRATOR",
+                  members: {
+                    some: {
+                      userId: session.userId,
+                    },
+                  },
+                },
               },
             },
           },
-        },
-      }),
-      prisma.documentVersion.findUnique({
-        where: { id: versionId },
-      }),
-    ]);
+        ],
+      },
+    });
 
     if (!document) {
-      return NextResponse.json({ error: "Document not found" }, { status: 404 });
+      return NextResponse.json({ error: "Document not found or access denied" }, { status: 404 });
     }
 
-    if (!sourceVersion || sourceVersion.documentId !== documentId) {
+    // Get source version
+    const sourceVersion = await prisma.documentVersion.findFirst({
+      where: {
+        id: versionId,
+        documentId,
+      },
+    });
+
+    if (!sourceVersion) {
       return NextResponse.json({ error: "Version not found" }, { status: 404 });
-    }
-
-    if (document.team.members.length === 0) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Get next version number
@@ -82,7 +81,7 @@ export async function POST(
           restoredFrom: sourceVersion.id,
           restoredFromVersion: sourceVersion.versionNumber,
         },
-        createdById: user.id,
+        createdById: session.userId,
       },
     });
 
@@ -102,8 +101,8 @@ export async function POST(
       action: "DOCUMENT_UPDATED",
       resourceType: "document",
       resourceId: documentId,
-      userId: user.id,
-      teamId: document.teamId,
+      userId: session.userId,
+      dataRoomId: document.dataRoomId,
       metadata: {
         action: "version_restored",
         restoredFromVersion: sourceVersion.versionNumber,

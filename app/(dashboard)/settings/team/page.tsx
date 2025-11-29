@@ -39,18 +39,14 @@ import {
 import {
   Users,
   UserPlus,
-  Mail,
   Shield,
   Trash2,
   Loader2,
   Crown,
-  CheckCircle2,
-  XCircle,
-  Clock,
 } from "lucide-react";
 import { format } from "date-fns";
 
-interface TeamMember {
+interface GroupMember {
   id: string;
   role: string;
   createdAt: string;
@@ -60,19 +56,22 @@ interface TeamMember {
     email: string;
     image: string | null;
   };
+  group: {
+    id: string;
+    name: string;
+    type: string;
+  };
 }
 
-interface TeamInvitation {
+interface DataRoom {
   id: string;
-  email: string;
-  role: string;
-  expires: string;
-  createdAt: string;
+  name: string;
 }
 
 export default function TeamSettingsPage() {
-  const [members, setMembers] = useState<TeamMember[]>([]);
-  const [invitations, setInvitations] = useState<TeamInvitation[]>([]);
+  const [members, setMembers] = useState<GroupMember[]>([]);
+  const [dataRooms, setDataRooms] = useState<DataRoom[]>([]);
+  const [selectedDataRoom, setSelectedDataRoom] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -80,17 +79,41 @@ export default function TeamSettingsPage() {
   const [inviting, setInviting] = useState(false);
 
   useEffect(() => {
-    fetchMembers();
-    fetchInvitations();
+    fetchDataRooms();
   }, []);
 
-  const fetchMembers = async () => {
+  useEffect(() => {
+    if (selectedDataRoom) {
+      fetchMembers();
+    }
+  }, [selectedDataRoom]);
+
+  const fetchDataRooms = async () => {
     try {
-      setLoading(true);
-      const response = await fetch("/api/teams/members");
+      const response = await fetch("/api/datarooms");
       if (response.ok) {
         const data = await response.json();
-        setMembers(data);
+        setDataRooms(data.data || []);
+        if (data.data?.length > 0) {
+          setSelectedDataRoom(data.data[0].id);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching data rooms:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMembers = async () => {
+    if (!selectedDataRoom) return;
+    
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/datarooms/\${selectedDataRoom}/members`);
+      if (response.ok) {
+        const data = await response.json();
+        setMembers(data.data || []);
       }
     } catch (error) {
       console.error("Error fetching members:", error);
@@ -99,24 +122,12 @@ export default function TeamSettingsPage() {
     }
   };
 
-  const fetchInvitations = async () => {
-    try {
-      const response = await fetch("/api/teams/invitations");
-      if (response.ok) {
-        const data = await response.json();
-        setInvitations(data);
-      }
-    } catch (error) {
-      console.error("Error fetching invitations:", error);
-    }
-  };
-
   const handleInvite = async () => {
-    if (!inviteEmail.trim()) return;
+    if (!inviteEmail.trim() || !selectedDataRoom) return;
 
     try {
       setInviting(true);
-      const response = await fetch("/api/teams/invitations", {
+      const response = await fetch(`/api/datarooms/\${selectedDataRoom}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -129,13 +140,13 @@ export default function TeamSettingsPage() {
         setInviteEmail("");
         setInviteRole("member");
         setShowInviteDialog(false);
-        fetchInvitations();
+        fetchMembers();
       } else {
         const data = await response.json();
-        alert(data.error || "Failed to send invitation");
+        alert(data.error || "Failed to add member");
       }
     } catch (error) {
-      console.error("Error sending invitation:", error);
+      console.error("Error adding member:", error);
       alert("An error occurred");
     } finally {
       setInviting(false);
@@ -143,8 +154,10 @@ export default function TeamSettingsPage() {
   };
 
   const handleUpdateRole = async (memberId: string, newRole: string) => {
+    if (!selectedDataRoom) return;
+
     try {
-      const response = await fetch(`/api/teams/members/${memberId}`, {
+      const response = await fetch(`/api/datarooms/\${selectedDataRoom}/members/\${memberId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role: newRole }),
@@ -162,10 +175,11 @@ export default function TeamSettingsPage() {
   };
 
   const handleRemoveMember = async (memberId: string) => {
-    if (!confirm("Are you sure you want to remove this team member?")) return;
+    if (!confirm("Are you sure you want to remove this member?")) return;
+    if (!selectedDataRoom) return;
 
     try {
-      const response = await fetch(`/api/teams/members/${memberId}`, {
+      const response = await fetch(`/api/datarooms/\${selectedDataRoom}/members/\${memberId}`, {
         method: "DELETE",
       });
 
@@ -174,20 +188,6 @@ export default function TeamSettingsPage() {
       }
     } catch (error) {
       console.error("Error removing member:", error);
-    }
-  };
-
-  const handleCancelInvitation = async (invitationId: string) => {
-    try {
-      const response = await fetch(`/api/teams/invitations/${invitationId}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        fetchInvitations();
-      }
-    } catch (error) {
-      console.error("Error canceling invitation:", error);
     }
   };
 
@@ -210,7 +210,7 @@ export default function TeamSettingsPage() {
     );
   };
 
-  if (loading) {
+  if (loading && dataRooms.length === 0) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -221,11 +221,32 @@ export default function TeamSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Team Settings</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Data Room Members</h1>
         <p className="text-slate-600 mt-1">
-          Manage team members, roles, and invitations
+          Manage members, roles, and access for your data rooms
         </p>
       </div>
+
+      {/* Data Room Selector */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-4">
+            <Label htmlFor="dataroom">Select Data Room</Label>
+            <Select value={selectedDataRoom} onValueChange={setSelectedDataRoom}>
+              <SelectTrigger className="w-64">
+                <SelectValue placeholder="Select a data room" />
+              </SelectTrigger>
+              <SelectContent>
+                {dataRooms.map((dr) => (
+                  <SelectItem key={dr.id} value={dr.id}>
+                    {dr.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -247,20 +268,6 @@ export default function TeamSettingsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-600">Pending Invitations</p>
-                <p className="text-2xl font-bold text-slate-900 mt-1">
-                  {invitations.length}
-                </p>
-              </div>
-              <Mail className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
                 <p className="text-sm text-slate-600">Admins</p>
                 <p className="text-2xl font-bold text-slate-900 mt-1">
                   {members.filter((m) => m.role === "admin" || m.role === "owner").length}
@@ -270,30 +277,44 @@ export default function TeamSettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600">Data Rooms</p>
+                <p className="text-2xl font-bold text-slate-900 mt-1">
+                  {dataRooms.length}
+                </p>
+              </div>
+              <Shield className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Team Members */}
+      {/* Members */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Team Members</CardTitle>
+              <CardTitle>Members</CardTitle>
               <CardDescription>
-                People who have access to your team
+                People who have access to this data room
               </CardDescription>
             </div>
             <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
               <DialogTrigger asChild>
-                <Button>
+                <Button disabled={!selectedDataRoom}>
                   <UserPlus className="mr-2 h-4 w-4" />
-                  Invite Member
+                  Add Member
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Invite Team Member</DialogTitle>
+                  <DialogTitle>Add Member</DialogTitle>
                   <DialogDescription>
-                    Send an invitation to join your team
+                    Add a new member to this data room
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
@@ -330,12 +351,12 @@ export default function TeamSettingsPage() {
                     {inviting ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Sending...
+                        Adding...
                       </>
                     ) : (
                       <>
-                        <Mail className="mr-2 h-4 w-4" />
-                        Send Invitation
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Add Member
                       </>
                     )}
                   </Button>
@@ -345,132 +366,100 @@ export default function TeamSettingsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Member</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Joined</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {members.map((member) => (
-                <TableRow key={member.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      {member.user.image ? (
-                        <img
-                          src={member.user.image}
-                          alt={member.user.name || ""}
-                          className="w-8 h-8 rounded-full"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                          <span className="text-sm font-medium text-blue-600">
-                            {(member.user.name || member.user.email)[0].toUpperCase()}
-                          </span>
-                        </div>
-                      )}
-                      <div>
-                        <p className="font-medium text-slate-900">
-                          {member.user.name || "Unknown"}
-                        </p>
-                        <p className="text-sm text-slate-600">
-                          {member.user.email}
-                        </p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {member.role === "owner" ? (
-                      getRoleBadge(member.role)
-                    ) : (
-                      <Select
-                        value={member.role}
-                        onValueChange={(value) => handleUpdateRole(member.id, value)}
-                      >
-                        <SelectTrigger className="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="viewer">Viewer</SelectItem>
-                          <SelectItem value="member">Member</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-slate-600">
-                    {format(new Date(member.createdAt), "MMM dd, yyyy")}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {member.role !== "owner" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveMember(member.id)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </TableCell>
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Member</TableHead>
+                  <TableHead>Group</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Joined</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {members.map((member) => (
+                  <TableRow key={member.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        {member.user.image ? (
+                          <img
+                            src={member.user.image}
+                            alt={member.user.name || ""}
+                            className="w-8 h-8 rounded-full"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                            <span className="text-sm font-medium text-blue-600">
+                              {(member.user.name || member.user.email)[0].toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-medium text-slate-900">
+                            {member.user.name || "Unknown"}
+                          </p>
+                          <p className="text-sm text-slate-600">
+                            {member.user.email}
+                          </p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{member.group.name}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {member.role === "owner" ? (
+                        getRoleBadge(member.role)
+                      ) : (
+                        <Select
+                          value={member.role}
+                          onValueChange={(value) => handleUpdateRole(member.id, value)}
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="viewer">Viewer</SelectItem>
+                            <SelectItem value="member">Member</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-slate-600">
+                      {format(new Date(member.createdAt), "MMM dd, yyyy")}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {member.role !== "owner" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveMember(member.id)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {members.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      No members found. Add members to get started.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
-
-      {/* Pending Invitations */}
-      {invitations.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Pending Invitations</CardTitle>
-            <CardDescription>
-              Invitations waiting to be accepted
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {invitations.map((invitation) => (
-                <div
-                  key={invitation.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="p-2 bg-yellow-50 rounded-lg">
-                      <Clock className="h-5 w-5 text-yellow-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-slate-900">
-                        {invitation.email}
-                      </p>
-                      <p className="text-sm text-slate-600">
-                        Invited as {invitation.role} •{" "}
-                        {format(new Date(invitation.createdAt), "MMM dd, yyyy")}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {getRoleBadge(invitation.role)}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleCancelInvitation(invitation.id)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <XCircle className="mr-1 h-4 w-4" />
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

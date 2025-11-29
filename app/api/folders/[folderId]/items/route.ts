@@ -28,13 +28,20 @@ export async function GET(
     const user = await prisma.user.findUnique({
       where: { email: session.email },
       include: {
-        teams: {
-          where: { teamId: folder.teamId },
+        groupMemberships: {
+          include: {
+            group: true,
+          },
+          where: {
+            group: {
+              dataRoomId: folder.dataRoomId,
+            },
+          },
         },
       },
     });
 
-    if (!user || user.teams.length === 0) {
+    if (!user || user.groupMemberships.length === 0) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

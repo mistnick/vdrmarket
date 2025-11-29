@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { User, Shield, Palette, Bell, CreditCard, Users } from "lucide-react";
+import { User, Shield, Palette, Bell, CreditCard, Users, FileText } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -43,6 +43,12 @@ const settingsNavigation = [
     href: "/settings/notifications",
     icon: Bell,
     description: "Configure email and in-app notifications",
+  },
+  {
+    name: "Notification Templates",
+    href: "/settings/templates",
+    icon: FileText,
+    description: "Customize email notification templates",
   },
   {
     name: "Billing",

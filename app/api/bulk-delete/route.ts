@@ -41,13 +41,17 @@ export async function DELETE(request: NextRequest) {
       errors: [] as string[],
     };
 
-    // Get user with their team memberships
+    // Get user with their group memberships
     const user = await prisma.user.findUnique({
       where: { id: session.userId },
       include: {
-        teams: {
+        groupMemberships: {
           include: {
-            team: true,
+            group: {
+              include: {
+                dataRoom: true,
+              },
+            },
           },
         },
       },
@@ -63,14 +67,14 @@ export async function DELETE(request: NextRequest) {
     // Helper to check if user can delete
     const canDelete = (
       itemOwnerId: string | null,
-      teamId: string,
-      userTeams: typeof user.teams
+      dataRoomId: string,
+      userGroupMemberships: typeof user.groupMemberships
     ): boolean => {
-      const teamMembership = userTeams.find((t) => t.teamId === teamId);
-      if (!teamMembership) return false;
+      const groupMembership = userGroupMemberships.find((gm) => gm.group.dataRoomId === dataRoomId);
+      if (!groupMembership) return false;
 
       // Owner or admin can delete anything
-      if (teamMembership.role === "owner" || teamMembership.role === "admin") {
+      if (groupMembership.role === "owner" || groupMembership.role === "admin") {
         return true;
       }
 
@@ -87,7 +91,7 @@ export async function DELETE(request: NextRequest) {
             id: true,
             name: true,
             ownerId: true,
-            teamId: true,
+            dataRoomId: true,
           },
         });
 
@@ -96,7 +100,7 @@ export async function DELETE(request: NextRequest) {
           continue;
         }
 
-        if (!canDelete(document.ownerId, document.teamId, user.teams)) {
+        if (!canDelete(document.ownerId, document.dataRoomId, user.groupMemberships)) {
           results.errors.push(`Permesso negato per documento "${document.name}"`);
           continue;
         }
@@ -110,7 +114,7 @@ export async function DELETE(request: NextRequest) {
           data: {
             id: nanoid(),
             userId: session.userId,
-            teamId: document.teamId,
+            dataRoomId: document.dataRoomId,
             action: "DOCUMENT_DELETE",
             resourceType: "document",
             resourceId: docId,
@@ -137,7 +141,7 @@ export async function DELETE(request: NextRequest) {
             id: true,
             name: true,
             ownerId: true,
-            teamId: true,
+            dataRoomId: true,
             _count: {
               select: {
                 documents: true,
@@ -152,7 +156,7 @@ export async function DELETE(request: NextRequest) {
           continue;
         }
 
-        if (!canDelete(folder.ownerId, folder.teamId, user.teams)) {
+        if (!canDelete(folder.ownerId, folder.dataRoomId, user.groupMemberships)) {
           results.errors.push(`Permesso negato per cartella "${folder.name}"`);
           continue;
         }
@@ -166,7 +170,7 @@ export async function DELETE(request: NextRequest) {
           data: {
             id: nanoid(),
             userId: session.userId,
-            teamId: folder.teamId,
+            dataRoomId: folder.dataRoomId,
             action: "FOLDER_DELETE",
             resourceType: "folder",
             resourceId: folderId,

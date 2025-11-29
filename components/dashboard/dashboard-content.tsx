@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +16,8 @@ import {
     ArrowRight
 } from "lucide-react";
 import Link from "next/link";
+import { format } from "date-fns";
+import { it } from "date-fns/locale";
 
 interface DashboardContentProps {
     userName: string;
@@ -34,6 +37,11 @@ export function DashboardContent({
     recentActivity,
 }: DashboardContentProps) {
     const firstName = userName.split(" ")[0];
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     return (
         <div className="space-y-6">
@@ -55,7 +63,7 @@ export function DashboardContent({
                         </Link>
                     </Button>
                     <Button asChild>
-                        <Link href="/documents/upload">
+                        <Link href="/file-explorer">
                             <Upload className="mr-2 h-4 w-4" />
                             Carica
                         </Link>
@@ -131,7 +139,7 @@ export function DashboardContent({
                     </CardHeader>
                     <CardContent className="grid gap-2">
                         <Link 
-                            href="/documents/upload"
+                            href="/file-explorer"
                             className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-accent"
                         >
                             <Upload className="h-5 w-5 text-muted-foreground" />
@@ -203,12 +211,9 @@ export function DashboardContent({
                                                 </span>
                                             </p>
                                             <p className="text-xs text-muted-foreground">
-                                                {new Date(activity.createdAt).toLocaleDateString("it-IT", {
-                                                    day: "numeric",
-                                                    month: "short",
-                                                    hour: "2-digit",
-                                                    minute: "2-digit",
-                                                })}
+                                                {mounted
+                                                    ? format(new Date(activity.createdAt), "d MMM, HH:mm", { locale: it })
+                                                    : ""}
                                             </p>
                                         </div>
                                     </div>

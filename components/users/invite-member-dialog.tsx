@@ -25,14 +25,14 @@ import { toast } from 'sonner';
 interface InviteMemberDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    teamId: string;
+    dataRoomId: string;
     onInviteSuccess?: () => void;
 }
 
 export function InviteMemberDialog({
     open,
     onOpenChange,
-    teamId,
+    dataRoomId,
     onInviteSuccess,
 }: InviteMemberDialogProps) {
     const [email, setEmail] = useState('');
@@ -47,14 +47,14 @@ export function InviteMemberDialog({
             return;
         }
 
-        if (!teamId) {
-            toast.error('Team ID is missing');
+        if (!dataRoomId) {
+            toast.error('Data room not selected');
             return;
         }
 
         try {
             setSending(true);
-            const response = await fetch(`/api/teams/${teamId}/invites`, {
+            const response = await fetch(`/api/datarooms/${dataRoomId}/invites`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -98,10 +98,10 @@ export function InviteMemberDialog({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <UserPlus className="h-5 w-5" />
-                        Invite Team Member
+                        Invite Data Room Member
                     </DialogTitle>
                     <DialogDescription>
-                        Send an invitation to join your team. They'll receive an email with a link to accept.
+                        Send an invitation to join this data room. They'll receive an email with a link to accept.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -168,7 +168,7 @@ export function InviteMemberDialog({
                             </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground">
-                            Choose the access level for this team member
+                            Choose the access level for this data room member
                         </p>
                     </div>
 

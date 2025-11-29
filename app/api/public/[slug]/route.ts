@@ -16,7 +16,7 @@ export async function GET(
         document: {
           include: {
             owner: true,
-            team: true,
+            dataRoom: true,
           },
         },
         allowedEmails: true,

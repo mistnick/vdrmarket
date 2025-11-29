@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatCard } from "@/components/shared/stat-card";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 
 interface LinkData {
   id: string;
@@ -35,7 +36,7 @@ interface LinkData {
   createdAt: string;
 }
 
-export default function LinksPage() {
+function LinksContent() {
   const [links, setLinks] = useState<LinkData[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -202,5 +203,16 @@ export default function LinksPage() {
         onSuccess={fetchLinks}
       />
     </div>
+  );
+}
+
+export default function LinksPage() {
+  return (
+    <PermissionGuard
+      requiredPermission={(p) => p.canViewLinks}
+      fallbackMessage="Non hai i permessi per visualizzare i link. Contatta l'amministratore."
+    >
+      <LinksContent />
+    </PermissionGuard>
   );
 }

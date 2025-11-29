@@ -1,4 +1,6 @@
 import nodemailer from "nodemailer";
+import { SESClient, SendEmailCommand, SendRawEmailCommand } from "@aws-sdk/client-ses";
+import { Resend } from "resend";
 
 interface SendEmailOptions {
   to: string | string[];
@@ -9,16 +11,43 @@ interface SendEmailOptions {
   attachments?: any[];
 }
 
+interface EmailResult {
+  success: boolean;
+  messageId?: string;
+  error?: string;
+}
+
 class EmailService {
   private transporter: nodemailer.Transporter | null = null;
-  private provider: "smtp" | "sendgrid" | "resend" | "mock" = "mock";
+  private sesClient: SESClient | null = null;
+  private resendClient: Resend | null = null;
+  private provider: "smtp" | "ses" | "sendgrid" | "resend" | "mock" = "mock";
 
   constructor() {
     this.initProvider();
   }
 
   private initProvider() {
-    if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+    // Priority 1: AWS SES
+    if (process.env.AWS_SES_ACCESS_KEY_ID && process.env.AWS_SES_SECRET_ACCESS_KEY) {
+      this.provider = "ses";
+      this.sesClient = new SESClient({
+        region: process.env.AWS_SES_REGION || "eu-west-1",
+        credentials: {
+          accessKeyId: process.env.AWS_SES_ACCESS_KEY_ID,
+          secretAccessKey: process.env.AWS_SES_SECRET_ACCESS_KEY,
+        },
+      });
+      console.log(`📧 Email Service initialized with AWS SES (region: ${process.env.AWS_SES_REGION || "eu-west-1"})`);
+    }
+    // Priority 2: Resend
+    else if (process.env.RESEND_API_KEY) {
+      this.provider = "resend";
+      this.resendClient = new Resend(process.env.RESEND_API_KEY);
+      console.log("📧 Email Service initialized with Resend");
+    }
+    // Priority 3: SMTP
+    else if (process.env.SMTP_HOST && process.env.SMTP_USER) {
       this.provider = "smtp";
       this.transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
@@ -29,17 +58,179 @@ class EmailService {
           pass: process.env.SMTP_PASS,
         },
       });
-    } else if (process.env.SENDGRID_API_KEY) {
-      this.provider = "sendgrid";
-      // Initialize SendGrid transporter (using nodemailer-sendgrid or similar)
-      // For now, fallback to mock if library not installed
-    } else if (process.env.RESEND_API_KEY) {
-      this.provider = "resend";
-      // Initialize Resend
-    } else {
-      this.provider = "mock";
-      console.log("📧 Email Service initialized in MOCK mode");
+      console.log("📧 Email Service initialized with SMTP");
     }
+    // Priority 4: SendGrid
+    else if (process.env.SENDGRID_API_KEY) {
+      this.provider = "sendgrid";
+      console.log("📧 Email Service initialized with SendGrid (not fully implemented)");
+    }
+    // Fallback: Mock
+    else {
+      this.provider = "mock";
+      console.log("📧 Email Service initialized in MOCK mode - configure RESEND_API_KEY, AWS SES or SMTP for production");
+    }
+  }
+
+  /**
+   * Send email via Resend
+   */
+  private async sendViaResend(options: SendEmailOptions): Promise<EmailResult> {
+    if (!this.resendClient) {
+      return { success: false, error: "Resend client not initialized" };
+    }
+
+    const { to, subject, html, text, from, attachments } = options;
+    const fromAddress = from || process.env.EMAIL_FROM || "onboarding@resend.dev";
+    const toAddresses = Array.isArray(to) ? to : [to];
+
+    try {
+      // Convert attachments to Resend format if present
+      const resendAttachments = attachments?.map((att) => ({
+        filename: att.filename,
+        content: att.content,
+      }));
+
+      const { data, error } = await this.resendClient.emails.send({
+        from: fromAddress,
+        to: toAddresses,
+        subject,
+        html,
+        text: text || this.stripHtml(html),
+        attachments: resendAttachments,
+      });
+
+      if (error) {
+        console.error(`❌ Failed to send email via Resend: ${error.message}`);
+        return { success: false, error: error.message };
+      }
+
+      console.log(`✅ Email sent via Resend to ${toAddresses.join(", ")} (MessageId: ${data?.id})`);
+      return { success: true, messageId: data?.id };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Failed to send email via Resend: ${errorMessage}`);
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  /**
+   * Send email via AWS SES
+   */
+  private async sendViaSES(options: SendEmailOptions): Promise<EmailResult> {
+    if (!this.sesClient) {
+      return { success: false, error: "SES client not initialized" };
+    }
+
+    const { to, subject, html, text, from, attachments } = options;
+    const fromAddress = from || process.env.EMAIL_FROM || "noreply@dataroom.com";
+    const toAddresses = Array.isArray(to) ? to : [to];
+
+    try {
+      // If we have attachments, use SendRawEmailCommand with nodemailer to build MIME
+      if (attachments && attachments.length > 0) {
+        return this.sendRawEmailViaSES(options);
+      }
+
+      const command = new SendEmailCommand({
+        Source: fromAddress,
+        Destination: {
+          ToAddresses: toAddresses,
+        },
+        Message: {
+          Subject: {
+            Data: subject,
+            Charset: "UTF-8",
+          },
+          Body: {
+            Html: {
+              Data: html,
+              Charset: "UTF-8",
+            },
+            Text: {
+              Data: text || this.stripHtml(html),
+              Charset: "UTF-8",
+            },
+          },
+        },
+        ConfigurationSetName: process.env.AWS_SES_CONFIGURATION_SET || undefined,
+      });
+
+      const response = await this.sesClient.send(command);
+      console.log(`✅ Email sent via AWS SES to ${toAddresses.join(", ")} (MessageId: ${response.MessageId})`);
+      return { success: true, messageId: response.MessageId };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Failed to send email via AWS SES: ${errorMessage}`);
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  /**
+   * Send raw email via AWS SES (supports attachments)
+   */
+  private async sendRawEmailViaSES(options: SendEmailOptions): Promise<EmailResult> {
+    if (!this.sesClient) {
+      return { success: false, error: "SES client not initialized" };
+    }
+
+    const { to, subject, html, text, from, attachments } = options;
+    const fromAddress = from || process.env.EMAIL_FROM || "noreply@dataroom.com";
+    const toAddresses = Array.isArray(to) ? to : [to];
+
+    try {
+      // Use nodemailer to build MIME message
+      const transporter = nodemailer.createTransport({ streamTransport: true });
+      const mailOptions = {
+        from: fromAddress,
+        to: toAddresses.join(", "),
+        subject,
+        html,
+        text: text || this.stripHtml(html),
+        attachments,
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      const rawMessage = await this.streamToBuffer(info.message);
+
+      const command = new SendRawEmailCommand({
+        RawMessage: { Data: rawMessage },
+        ConfigurationSetName: process.env.AWS_SES_CONFIGURATION_SET || undefined,
+      });
+
+      const response = await this.sesClient.send(command);
+      console.log(`✅ Raw email sent via AWS SES to ${toAddresses.join(", ")} (MessageId: ${response.MessageId})`);
+      return { success: true, messageId: response.MessageId };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Failed to send raw email via AWS SES: ${errorMessage}`);
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  /**
+   * Convert stream or buffer to Uint8Array for raw email
+   */
+  private async streamToBuffer(input: NodeJS.ReadableStream | Buffer): Promise<Uint8Array> {
+    // If it's already a Buffer, convert directly
+    if (Buffer.isBuffer(input)) {
+      return new Uint8Array(input);
+    }
+
+    // Otherwise treat as stream
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      input.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+      input.on("end", () => resolve(new Uint8Array(Buffer.concat(chunks))));
+      input.on("error", reject);
+    });
+  }
+
+  /**
+   * Strip HTML tags for plain text version
+   */
+  private stripHtml(html: string): string {
+    return html.replace(/<[^>]*>?/gm, "").replace(/\s+/g, " ").trim();
   }
 
   async sendEmail(options: SendEmailOptions): Promise<boolean> {
@@ -47,8 +238,34 @@ class EmailService {
     const fromAddress = from || process.env.EMAIL_FROM || "noreply@dataroom.com";
 
     try {
-      if (this.provider === "mock" || !this.transporter) {
-        console.log(`
+      // AWS SES
+      if (this.provider === "ses" && this.sesClient) {
+        const result = await this.sendViaSES(options);
+        return result.success;
+      }
+
+      // Resend
+      if (this.provider === "resend" && this.resendClient) {
+        const result = await this.sendViaResend(options);
+        return result.success;
+      }
+
+      // SMTP via nodemailer
+      if (this.provider === "smtp" && this.transporter) {
+        await this.transporter.sendMail({
+          from: fromAddress,
+          to,
+          subject,
+          html,
+          text: text || this.stripHtml(html),
+          attachments,
+        });
+        console.log(`✅ Email sent via SMTP to ${Array.isArray(to) ? to.join(", ") : to}`);
+        return true;
+      }
+
+      // Mock mode
+      console.log(`
 📧 [MOCK EMAIL]
 To: ${Array.isArray(to) ? to.join(", ") : to}
 From: ${fromAddress}
@@ -56,24 +273,22 @@ Subject: ${subject}
 ---
 ${text || "(HTML Content)"}
 ---
-        `);
-        return true;
-      }
-
-      await this.transporter.sendMail({
-        from: fromAddress,
-        to,
-        subject,
-        html,
-        text: text || html.replace(/<[^>]*>?/gm, ""), // Simple strip tags
-        attachments,
-      });
-
+      `);
       return true;
     } catch (error) {
       console.error("Error sending email:", error);
       return false;
     }
+  }
+
+  /**
+   * Get current provider info
+   */
+  getProviderInfo(): { provider: string; configured: boolean } {
+    return {
+      provider: this.provider,
+      configured: this.provider !== "mock",
+    };
   }
 }
 

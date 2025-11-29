@@ -2,6 +2,8 @@ import { getSession } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { DashboardContent } from "@/components/dashboard/dashboard-content";
+import { VDRQuickAccess } from "@/components/dashboard/vdr-quick-access";
+import { VDRStatsCard } from "@/components/dashboard/vdr-stats-card";
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -13,16 +15,19 @@ export default async function DashboardPage() {
   const user = await prisma.user.findUnique({
     where: { email: session.email },
     include: {
-      teams: {
+      groupMemberships: {
         include: {
-          team: {
+          group: {
             include: {
-              _count: {
-                select: {
-                  documents: true,
-                  folders: true,
-                  dataRooms: true,
-                  members: true,
+              dataRoom: {
+                include: {
+                  _count: {
+                    select: {
+                      documents: true,
+                      folders: true,
+                      groups: true,
+                    },
+                  },
                 },
               },
             },
@@ -32,32 +37,35 @@ export default async function DashboardPage() {
     },
   });
 
-  // Get total stats across all teams
-  const totalDocuments = user?.teams.reduce(
-    (sum: number, tm: any) => sum + tm.team._count.documents,
+  // Get unique dataRooms from groupMemberships
+  const uniqueDataRooms = new Map();
+  user?.groupMemberships.forEach((gm: any) => {
+    if (gm.group.dataRoom && !uniqueDataRooms.has(gm.group.dataRoom.id)) {
+      uniqueDataRooms.set(gm.group.dataRoom.id, gm.group.dataRoom);
+    }
+  });
+  const dataRoomsArray = Array.from(uniqueDataRooms.values());
+
+  // Get total stats across all dataRooms
+  const totalDocuments = dataRoomsArray.reduce(
+    (sum: number, dr: any) => sum + dr._count.documents,
     0
   ) || 0;
 
-  const totalDataRooms = user?.teams.reduce(
-    (sum: number, tm: any) => sum + tm.team._count.dataRooms,
-    0
-  ) || 0;
+  const totalDataRooms = dataRoomsArray.length;
 
-  const totalMembers = user?.teams.reduce(
-    (sum: number, tm: any) => sum + tm.team._count.members,
+  const totalMembers = dataRoomsArray.reduce(
+    (sum: number, dr: any) => sum + dr._count.groups,
     0
   ) || 0;
 
   // Get document views stats
+  const dataRoomIds = dataRoomsArray.map((dr: any) => dr.id);
   const documentViews = await prisma.view.count({
     where: {
       document: {
-        team: {
-          members: {
-            some: {
-              userId: user?.id,
-            },
-          },
+        dataRoomId: {
+          in: dataRoomIds,
         },
       },
     },
@@ -68,12 +76,8 @@ export default async function DashboardPage() {
   const activeLinks = await prisma.link.count({
     where: {
       document: {
-        team: {
-          members: {
-            some: {
-              userId: user?.id,
-            },
-          },
+        dataRoomId: {
+          in: dataRoomIds,
         },
       },
       isActive: true,
@@ -90,12 +94,8 @@ export default async function DashboardPage() {
   // Get recent activity
   const recentActivity = await prisma.auditLog.findMany({
     where: {
-      team: {
-        members: {
-          some: {
-            userId: user?.id,
-          },
-        },
+      dataRoomId: {
+        in: dataRoomIds,
       },
     },
     include: {
@@ -107,14 +107,56 @@ export default async function DashboardPage() {
     take: 6,
   });
 
+  // Get VDR stats
+  const vdrStats = {
+    totalUsers: await prisma.groupMember.count({
+      where: {
+        group: {
+          dataRoomId: {
+            in: dataRoomIds,
+          },
+        },
+      },
+    }),
+    activeGroups: await prisma.group.count({
+      where: {
+        dataRoomId: {
+          in: dataRoomIds,
+        },
+      },
+    }),
+    pendingInvitations: 0, // Could track pending invites
+    recentActivity: await prisma.auditLog.count({
+      where: {
+        dataRoomId: {
+          in: dataRoomIds,
+        },
+        createdAt: {
+          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
+        },
+      },
+    }),
+    documentsShared: totalDocuments,
+  };
+
+  // Get first data room ID for VDR quick access
+  const firstDataRoomId = dataRoomsArray[0]?.id;
+
   return (
-    <DashboardContent
-      userName={session?.name || session?.email || "User"}
-      totalDocuments={totalDocuments}
-      activeLinks={activeLinks}
-      documentViews={documentViews}
-      totalMembers={totalMembers}
-      recentActivity={recentActivity}
-    />
+    <div className="space-y-6">
+      <DashboardContent
+        userName={session?.name || session?.email || "User"}
+        totalDocuments={totalDocuments}
+        activeLinks={activeLinks}
+        documentViews={documentViews}
+        totalMembers={totalMembers}
+        recentActivity={recentActivity}
+      />
+      
+      <div className="grid gap-6 md:grid-cols-2">
+        <VDRStatsCard stats={vdrStats} />
+        <VDRQuickAccess dataRoomId={firstDataRoomId} />
+      </div>
+    </div>
   );
 }

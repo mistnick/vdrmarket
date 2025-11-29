@@ -35,7 +35,7 @@ export default async function LinkAnalyticsPage({ params }: PageProps) {
         include: {
             document: {
                 include: {
-                    team: true,
+                    dataRoom: true,
                 },
             },
             creator: {
@@ -57,10 +57,12 @@ export default async function LinkAnalyticsPage({ params }: PageProps) {
         notFound();
     }
 
-    // Check access
-    const hasAccess = await prisma.teamMember.findFirst({
+    // Check access via GroupMember
+    const hasAccess = await prisma.groupMember.findFirst({
         where: {
-            teamId: link.document.teamId,
+            group: {
+                dataRoomId: link.document.dataRoomId,
+            },
             user: {
                 email: session.email,
             },

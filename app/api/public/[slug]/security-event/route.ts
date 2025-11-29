@@ -20,7 +20,7 @@ export async function POST(
       );
     }
 
-    // Get link to verify it exists and get team ID
+    // Get link to verify it exists and get data room ID
     const link = await prisma.link.findUnique({
       where: { slug },
       select: {
@@ -28,7 +28,7 @@ export async function POST(
         document: {
           select: {
             id: true,
-            teamId: true,
+            dataRoomId: true,
           },
         },
       },
@@ -45,7 +45,7 @@ export async function POST(
     await createAuditLog({
       action: "SECURITY_VIOLATION",
       userId: undefined,
-      teamId: link.document.teamId,
+      dataRoomId: link.document.dataRoomId,
       resourceType: "document",
       resourceId: link.document.id,
       metadata: {

@@ -20,7 +20,7 @@ import { toast } from "sonner";
 interface CreateFolderDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    teamId: string;
+    dataRoomId: string;
     parentId?: string | null;
     onSuccess?: () => void;
 }
@@ -28,7 +28,7 @@ interface CreateFolderDialogProps {
 export function CreateFolderDialog({
     open,
     onOpenChange,
-    teamId,
+    dataRoomId,
     parentId = null,
     onSuccess,
 }: CreateFolderDialogProps) {
@@ -80,7 +80,7 @@ export function CreateFolderDialog({
                 body: JSON.stringify({
                     name: formData.name.trim(),
                     description: formData.description.trim() || undefined,
-                    teamId,
+                    dataRoomId,
                     parentId,
                 }),
             });

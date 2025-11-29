@@ -1,5 +1,5 @@
 // DataRoom - Prisma Schema
-// Based on Papermark's data model
+// Restructured: DataRoom is the main container (no separate Team entity)
 
 generator client {
   provider = "prisma-client-js"
@@ -8,10 +8,6 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
-
-
-
-
 
 // ============================================
 // User Management & Authentication
@@ -34,13 +30,19 @@ model User {
   twoFactorEnabled Boolean @default(false)
   twoFactorSecret  String?
 
+  // VDR-specific fields
+  status       String   @default("ACTIVE") // PENDING_INVITE, ACTIVE, DEACTIVATED, EXPIRED
+  accessType   String   @default("UNLIMITED") // UNLIMITED, LIMITED
+  accessStartAt DateTime?
+  accessEndAt   DateTime?
+  allowedIps    Json?    // Array of allowed IP addresses/CIDR ranges
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
   accounts          Account[]
   sessions          Session[]
-  teams             TeamMember[]
   documents         Document[]
   documentVersions  DocumentVersion[] @relation("DocumentVersions")
   folders           Folder[]
@@ -55,8 +57,15 @@ model User {
   answersProvided   Answer[]          @relation("AnswersProvided")
   commentsCreated   Comment[]         @relation("CommentsCreated")
   commentMentions   CommentMention[]  @relation("CommentMentions")
+  
+  // VDR Relations
+  groupMemberships  GroupMember[]
+  invitationsCreated UserInvitation[] @relation("InvitationsCreated")
+  documentUserPermissions DocumentUserPermission[]
+  folderUserPermissions   FolderUserPermission[]
 
   @@index([isActive])
+  @@index([status])
   @@map("users")
 }
 
@@ -102,10 +111,10 @@ model Session {
   // Session metadata for security tracking
   ipAddress    String?
   userAgent    String?  @db.Text
-  device       String?  // e.g., "Desktop", "Mobile", "Tablet"
-  browser      String?  // e.g., "Chrome", "Safari", "Firefox"
-  os           String?  // e.g., "Windows", "macOS", "iOS"
-  location     String?  // e.g., "New York, US"
+  device       String?
+  browser      String?
+  os           String?
+  location     String?
   
   createdAt    DateTime @default(now())
   lastActivity DateTime @default(now())
@@ -126,71 +135,51 @@ model VerificationToken {
 }
 
 // ============================================
-// Team/Workspace Management
+// Virtual Data Room (Main Container)
 // ============================================
 
-model Team {
-  id   String  @id @default(cuid())
-  name String
-  slug String  @unique
-  logo String?
-  plan String  @default("free") // free, pro, business, enterprise
-
+model DataRoom {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  logo        String?
+  isPublic    Boolean  @default(false)
+  plan        String   @default("free") // free, pro, business, enterprise
+  
   // Branding
-  brandColor       String? // Primary brand color (hex)
-  accentColor      String? // Accent color (hex)
-  customDomain     String? // Custom domain for links
+  brandColor       String?
+  accentColor      String?
+  customDomain     String?
   watermarkEnabled Boolean @default(true)
-  watermarkText    String? // Custom watermark text template
+  watermarkText    String?
   watermarkOpacity Float?  @default(0.3)
   
   // File Upload Security
-  maxFileSize      Int     @default(104857600) // Max file size in bytes (default 100MB)
-  allowedFileTypes Json?   // Custom whitelist of allowed MIME types (null = use global defaults)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  maxFileSize      Int     @default(104857600) // 100MB
+  allowedFileTypes Json?
+  
+  // VDR-specific settings
+  qnaEnabled                     Boolean   @default(false)
+  dueDiligenceChecklistEnabled   Boolean   @default(false)
+  archivedAt                     DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
-  members     TeamMember[]
-  documents   Document[]
-  folders     Folder[]
-  dataRooms   DataRoom[]
-  invitations TeamInvitation[]
-  auditLogs   AuditLog[]
-  tags        Tag[]
+  documents    Document[]
+  folders      Folder[]
+  questions    Question[]
+  qaCategories QACategory[]
+  auditLogs    AuditLog[]
+  tags         Tag[]
+  groups       Group[]
+  userInvitations           UserInvitation[]
+  dueDiligenceChecklists    DueDiligenceChecklist[]
 
-  @@map("teams")
-}
-
-model TeamMember {
-  id        String   @id @default(cuid())
-  teamId    String
-  userId    String
-  role      String   @default("member") // owner, admin, member, viewer
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([teamId, userId])
-  @@map("team_members")
-}
-
-model TeamInvitation {
-  id        String   @id @default(cuid())
-  teamId    String
-  email     String
-  role      String   @default("member")
-  token     String   @unique
-  expires   DateTime
-  createdAt DateTime @default(now())
-
-  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
-
-  @@unique([teamId, email])
-  @@map("team_invitations")
+  @@index([archivedAt])
+  @@map("data_rooms")
 }
 
 // ============================================
@@ -201,39 +190,43 @@ model Document {
   id          String   @id @default(cuid())
   name        String
   description String?
-  file        String // Storage path/key
-  fileType    String // pdf, docx, xlsx, etc.
-  fileSize    Int // bytes
+  file        String
+  fileType    String
+  fileSize    Int
   versions    Int      @default(1)
-  teamId      String
+  dataRoomId  String
   ownerId     String
   folderId    String?
-  dataRoomId  String?
   
   // File Security
-  scanStatus String?  @default("pending") // pending, clean, infected, error, skipped
-  scanResult Json?    // Scanner metadata (scanner name, scan date, threat info if any)
+  scanStatus String?  @default("pending")
+  scanResult Json?
+  
+  // Soft delete
+  deletedAt   DateTime?
+  deletedById String?
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relations
-  team             Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  dataRoom         DataRoom          @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
   owner            User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   folder           Folder?           @relation(fields: [folderId], references: [id], onDelete: SetNull)
-  dataRoom         DataRoom?         @relation(fields: [dataRoomId], references: [id], onDelete: SetNull)
   links            Link[]
   views            View[]
   versions_history DocumentVersion[]
   metadata         DocumentMetadata[]
   tags             DocumentTag[]
   comments         Comment[]
+  groupPermissions DocumentGroupPermission[]
+  userPermissions  DocumentUserPermission[]
 
-  @@index([teamId])
+  @@index([dataRoomId])
   @@index([ownerId])
   @@index([folderId])
-  @@index([dataRoomId])
-  @@index([scanStatus]) // For filtering documents by scan status
+  @@index([scanStatus])
+  @@index([deletedAt])
   @@map("documents")
 }
 
@@ -241,13 +234,13 @@ model DocumentVersion {
   id            String   @id @default(cuid())
   documentId    String
   versionNumber Int
-  file          String   // Storage path/key for this version
-  fileSize      Int      // Size in bytes
-  fileName      String?  // Original filename for this version
-  fileType      String?  // MIME type
-  comment       String?  @db.Text // Version comment/description
-  metadata      Json?    // Version-specific metadata
-  createdById   String   // User who created this version
+  file          String
+  fileSize      Int
+  fileName      String?
+  fileType      String?
+  comment       String?  @db.Text
+  metadata      Json?
+  createdById   String
   createdAt     DateTime @default(now())
 
   document  Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
@@ -266,65 +259,30 @@ model DocumentVersion {
 model Folder {
   id         String   @id @default(cuid())
   name       String
-  teamId     String
+  dataRoomId String
   ownerId    String
   parentId   String?
-  dataRoomId String?
-  path       String // /parent/child for easy querying
+  path       String
+  
+  deletedAt   DateTime?
+  deletedById String?
+  
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   // Relations
-  team      Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  dataRoom  DataRoom   @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
   owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   parent    Folder?    @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
   children  Folder[]   @relation("FolderHierarchy")
-  dataRoom  DataRoom?  @relation(fields: [dataRoomId], references: [id], onDelete: SetNull)
   documents Document[]
+  groupPermissions FolderGroupPermission[]
+  userPermissions  FolderUserPermission[]
 
-  @@index([teamId])
-  @@index([parentId])
   @@index([dataRoomId])
+  @@index([parentId])
+  @@index([deletedAt])
   @@map("folders")
-}
-
-// ============================================
-// Virtual Data Room
-// ============================================
-
-model DataRoom {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  teamId      String
-  isPublic    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  team         Team                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  folders      Folder[]
-  documents    Document[]
-  permissions  DataRoomPermission[]
-  questions    Question[]
-  qaCategories QACategory[]
-
-  @@index([teamId])
-  @@map("data_rooms")
-}
-
-model DataRoomPermission {
-  id         String   @id @default(cuid())
-  dataRoomId String
-  email      String
-  level      String   @default("viewer") // viewer, editor, admin
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  dataRoom DataRoom @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
-
-  @@unique([dataRoomId, email])
-  @@map("data_room_permissions")
 }
 
 // ============================================
@@ -340,7 +298,6 @@ model Link {
   createdBy   String
   isActive    Boolean @default(true)
 
-  // Access Control
   password           String?
   expiresAt          DateTime?
   allowDownload      Boolean   @default(true)
@@ -348,20 +305,15 @@ model Link {
   emailProtected     Boolean   @default(false)
   emailAuthenticated Boolean   @default(false)
   domainSlug         String?
-  
-  // Security Enhancements
-  maxViews       Int?  // Maximum number of views allowed (null = unlimited)
-  viewCount      Int   @default(0) // Current number of views
-  allowedDomains Json? // Array of allowed email domains (e.g., ["company.com", "partner.com"])
-
-  // Tracking
-  enableTracking Boolean @default(true)
-  enableFeedback Boolean @default(false)
+  maxViews           Int?
+  viewCount          Int   @default(0)
+  allowedDomains     Json?
+  enableTracking     Boolean @default(true)
+  enableFeedback     Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
   document      Document           @relation(fields: [documentId], references: [id], onDelete: Cascade)
   creator       User               @relation(fields: [createdBy], references: [id], onDelete: Cascade)
   views         View[]
@@ -369,7 +321,7 @@ model Link {
 
   @@index([documentId])
   @@index([slug])
-  @@index([viewCount]) // For efficient max views checking
+  @@index([viewCount])
   @@map("links")
 }
 
@@ -397,16 +349,14 @@ model View {
   viewerName  String?
   verified    Boolean @default(false)
 
-  // Device & Location Info
   ipAddress String?
   userAgent String?
   country   String?
   city      String?
 
-  // Engagement Metrics
   viewedAt       DateTime  @default(now())
-  duration       Int? // seconds
-  completionRate Float? // 0-100%
+  duration       Int?
+  completionRate Float?
   downloadedAt   DateTime?
 
   link     Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
@@ -425,25 +375,22 @@ model View {
 
 model AuditLog {
   id           String   @id @default(cuid())
-  teamId       String?
+  dataRoomId   String?
   userId       String?
-  action       String // created, updated, deleted, viewed, shared, downloaded, login, logout, password_change, security_settings
-  resourceType String // document, folder, link, dataroom, team, user, system
+  action       String
+  resourceType String
   resourceId   String?
-  metadata     Json?    // Stores masked sensitive data, changes, etc.
+  metadata     Json?
   ipAddress    String?
   userAgent    String?
-  
-  // Immutability fields
-  hash         String?  // SHA-256 hash of the log entry
-  previousHash String?  // Hash of the previous log entry for chaining
-  
+  hash         String?
+  previousHash String?
   createdAt    DateTime @default(now())
 
-  team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  dataRoom DataRoom? @relation(fields: [dataRoomId], references: [id], onDelete: SetNull)
+  user     User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  @@index([teamId])
+  @@index([dataRoomId])
   @@index([userId])
   @@index([resourceType, resourceId])
   @@index([createdAt])
@@ -460,11 +407,11 @@ model Question {
   dataRoomId   String
   categoryId   String?
   questionText String   @db.Text
-  status       String   @default("pending") // pending, answered, closed
-  priority     String   @default("normal") // low, normal, high, urgent
+  status       String   @default("pending")
+  priority     String   @default("normal")
   askedById    String
   assignedToId String?
-  bidderGroup  String?  // For bidder isolation in M&A deals
+  bidderGroup  String?
   isPrivate    Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -525,7 +472,7 @@ model DocumentMetadata {
   documentId String
   key        String
   value      String   @db.Text
-  type       String   @default("text") // text, number, date, boolean, select
+  type       String   @default("text")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -538,17 +485,17 @@ model DocumentMetadata {
 }
 
 model Tag {
-  id        String   @id @default(cuid())
-  teamId    String
-  name      String
-  color     String?
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  dataRoomId String
+  name       String
+  color      String?
+  createdAt  DateTime @default(now())
 
-  team      Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  dataRoom  DataRoom     @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
   documents DocumentTag[]
 
-  @@unique([teamId, name])
-  @@index([teamId])
+  @@unique([dataRoomId, name])
+  @@index([dataRoomId])
   @@map("tags")
 }
 
@@ -576,7 +523,7 @@ model Comment {
   documentId String
   userId     String
   content    String    @db.Text
-  parentId   String?   // For threaded replies
+  parentId   String?
   isPrivate  Boolean   @default(false)
   resolved   Boolean   @default(false)
   createdAt  DateTime  @default(now())
@@ -613,13 +560,10 @@ model CommentMention {
 // Notifications
 // ============================================
 
-// Notifications
-// ============================================
-
 model Notification {
   id        String   @id @default(cuid())
   userId    String
-  type      String // link_viewed, document_shared, team_invitation
+  type      String
   title     String
   message   String
   read      Boolean  @default(false)
@@ -637,26 +581,17 @@ model NotificationPreference {
   id      String @id @default(cuid())
   userId  String @unique
   
-  // Email notifications
   emailEnabled          Boolean @default(true)
   emailLinkViewed       Boolean @default(true)
   emailDocumentShared   Boolean @default(true)
-  emailTeamInvitation   Boolean @default(true)
+  emailGroupInvitation  Boolean @default(true)
   emailCommentMention   Boolean @default(true)
   emailQAActivity       Boolean @default(true)
-  
-  // In-app notifications
   inAppEnabled          Boolean @default(true)
-  
-  // Desktop notifications
   desktopEnabled        Boolean @default(false)
-  
-  // Digest settings
   digestEnabled         Boolean @default(false)
-  digestFrequency       String  @default("daily") // daily, weekly
-  digestTime            String  @default("09:00") // HH:mm format
-  
-  // Sound
+  digestFrequency       String  @default("daily")
+  digestTime            String  @default("09:00")
   soundEnabled          Boolean @default(true)
   
   createdAt             DateTime @default(now())
@@ -669,47 +604,230 @@ model NotificationPreference {
 }
 
 // ============================================
-// Permissions & Access Control
+// VDR: Groups & Group Members
 // ============================================
 
-model Permission {
-  id          String   @id @default(cuid())
-  name        String   @unique // documents.create, documents.delete, etc.
+enum GroupType {
+  ADMINISTRATOR
+  USER
+  CUSTOM
+}
+
+model Group {
+  id          String    @id @default(cuid())
+  dataRoomId  String
+  name        String
   description String?
-  category    String   // documents, folders, links, datarooms, teams, settings
+  type        GroupType @default(USER)
+  
+  canViewDueDiligenceChecklist Boolean @default(false)
+  canManageDocumentPermissions Boolean @default(false)
+  canViewGroupUsers           Boolean @default(false)
+  canManageUsers              Boolean @default(false)
+  canViewGroupActivity        Boolean @default(false)
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  dataRoom             DataRoom                 @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
+  members              GroupMember[]
+  documentPermissions  DocumentGroupPermission[]
+  folderPermissions    FolderGroupPermission[]
+  
+  @@index([dataRoomId])
+  @@index([type])
+  @@map("groups")
+}
+
+model GroupMember {
+  id        String   @id @default(cuid())
+  groupId   String
+  userId    String
+  role      String   @default("member") // owner, admin, member, viewer
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([groupId, userId])
+  @@index([groupId])
+  @@index([userId])
+  @@map("group_members")
+}
+
+// ============================================
+// VDR: User Invitations
+// ============================================
+
+model UserInvitation {
+  id         String   @id @default(cuid())
+  email      String
+  dataRoomId String
+  groupIds   Json
+  role       String   @default("member")
+  token      String   @unique
+  expiresAt  DateTime
+  createdById String
+  createdAt  DateTime @default(now())
+  
+  dataRoom  DataRoom @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
+  createdBy User     @relation("InvitationsCreated", fields: [createdById], references: [id], onDelete: Cascade)
+  
+  @@unique([dataRoomId, email])
+  @@index([token])
+  @@index([email])
+  @@index([dataRoomId])
+  @@map("user_invitations")
+}
+
+// ============================================
+// VDR: Document & Folder Permissions
+// ============================================
+
+model DocumentGroupPermission {
+  id                   String  @id @default(cuid())
+  documentId           String
+  groupId              String
+  canFence             Boolean @default(false)
+  canView              Boolean @default(false)
+  canDownloadEncrypted Boolean @default(false)
+  canDownloadPdf       Boolean @default(false)
+  canDownloadOriginal  Boolean @default(false)
+  canUpload            Boolean @default(false)
+  canManage            Boolean @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  
+  @@unique([documentId, groupId])
+  @@index([documentId])
+  @@index([groupId])
+  @@map("document_group_permissions")
+}
+
+model DocumentUserPermission {
+  id                   String  @id @default(cuid())
+  documentId           String
+  userId               String
+  canFence             Boolean @default(false)
+  canView              Boolean @default(false)
+  canDownloadEncrypted Boolean @default(false)
+  canDownloadPdf       Boolean @default(false)
+  canDownloadOriginal  Boolean @default(false)
+  canUpload            Boolean @default(false)
+  canManage            Boolean @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([documentId, userId])
+  @@index([documentId])
+  @@index([userId])
+  @@map("document_user_permissions")
+}
+
+model FolderGroupPermission {
+  id                   String  @id @default(cuid())
+  folderId             String
+  groupId              String
+  canFence             Boolean @default(false)
+  canView              Boolean @default(false)
+  canDownloadEncrypted Boolean @default(false)
+  canDownloadPdf       Boolean @default(false)
+  canDownloadOriginal  Boolean @default(false)
+  canUpload            Boolean @default(false)
+  canManage            Boolean @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  folder Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  group  Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  
+  @@unique([folderId, groupId])
+  @@index([folderId])
+  @@index([groupId])
+  @@map("folder_group_permissions")
+}
+
+model FolderUserPermission {
+  id                   String  @id @default(cuid())
+  folderId             String
+  userId               String
+  canFence             Boolean @default(false)
+  canView              Boolean @default(false)
+  canDownloadEncrypted Boolean @default(false)
+  canDownloadPdf       Boolean @default(false)
+  canDownloadOriginal  Boolean @default(false)
+  canUpload            Boolean @default(false)
+  canManage            Boolean @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  folder Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([folderId, userId])
+  @@index([folderId])
+  @@index([userId])
+  @@map("folder_user_permissions")
+}
+
+// ============================================
+// VDR: Due Diligence Checklists
+// ============================================
+
+model DueDiligenceChecklist {
+  id          String   @id @default(cuid())
+  dataRoomId  String
+  name        String
+  description String?
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   
-  rolePermissions RolePermission[]
-  userPermissions UserPermission[]
+  dataRoom DataRoom              @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
+  items    DueDiligenceItem[]
   
-  @@map("permissions")
+  @@index([dataRoomId])
+  @@map("due_diligence_checklists")
 }
 
-model RolePermission {
-  id           String   @id @default(cuid())
-  role         String   // owner, admin, member, viewer
-  permissionId String
-  granted      Boolean  @default(true)
-  createdAt    DateTime @default(now())
+model DueDiligenceItem {
+  id          String   @id @default(cuid())
+  checklistId String
+  title       String
+  description String?  @db.Text
+  completed   Boolean  @default(false)
+  completedBy String?
+  completedAt DateTime?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   
-  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  checklist DueDiligenceChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
   
-  @@unique([role, permissionId])
-  @@index([role])
-  @@map("role_permissions")
+  @@index([checklistId])
+  @@map("due_diligence_items")
 }
 
-model UserPermission {
-  id           String   @id @default(cuid())
-  userId       String
-  teamId       String
-  permissionId String
-  granted      Boolean  @default(true)
-  createdAt    DateTime @default(now())
+// ============================================
+// VDR: Email Templates
+// ============================================
+
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  name        String   @unique // "invitation", "password_reset", etc.
+  subject     String
+  htmlContent String   @db.Text
+  textContent String?  @db.Text
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   
-  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-  
-  @@unique([userId, teamId, permissionId])
-  @@index([userId, teamId])
-  @@map("user_permissions")
+  @@index([name])
+  @@map("email_templates")
 }

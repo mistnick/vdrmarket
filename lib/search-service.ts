@@ -14,30 +14,38 @@ export interface SearchResult {
 
 export async function searchContent(
     query: string,
-    teamId: string,
+    dataRoomId: string | null,
     userId: string
 ): Promise<SearchResult[]> {
     if (!query || query.length < 2) return [];
 
-    // If no teamId provided, find all teams the user is a member of
-    let teamIds: string[] = [];
-    if (teamId) {
-        teamIds = [teamId];
-    } else {
-        const userTeams = await prisma.teamMember.findMany({
-            where: { userId },
-            select: { teamId: true },
-        });
-        teamIds = userTeams.map((t) => t.teamId);
+    // Find all data rooms where the user is a member
+    const userMemberships = await prisma.groupMember.findMany({
+        where: { userId },
+        select: {
+            group: {
+                select: { dataRoomId: true },
+            },
+        },
+    });
+
+    let dataRoomIds = userMemberships.map((m) => m.group.dataRoomId);
+
+    // If specific dataRoomId provided, filter to only that one
+    if (dataRoomId) {
+        if (!dataRoomIds.includes(dataRoomId)) {
+            return []; // User doesn't have access to this data room
+        }
+        dataRoomIds = [dataRoomId];
     }
 
-    if (teamIds.length === 0) return [];
+    if (dataRoomIds.length === 0) return [];
 
     const [documents, folders, dataRooms] = await Promise.all([
         // Search Documents
         prisma.document.findMany({
             where: {
-                teamId: { in: teamIds },
+                dataRoomId: { in: dataRoomIds },
                 OR: [
                     { name: { contains: query, mode: "insensitive" } },
                     { description: { contains: query, mode: "insensitive" } },
@@ -50,7 +58,7 @@ export async function searchContent(
         // Search Folders
         prisma.folder.findMany({
             where: {
-                teamId: { in: teamIds },
+                dataRoomId: { in: dataRoomIds },
                 name: { contains: query, mode: "insensitive" },
             },
             take: 5,
@@ -60,7 +68,7 @@ export async function searchContent(
         // Search DataRooms
         prisma.dataRoom.findMany({
             where: {
-                teamId: { in: teamIds },
+                id: { in: dataRoomIds },
                 OR: [
                     { name: { contains: query, mode: "insensitive" } },
                     { description: { contains: query, mode: "insensitive" } },

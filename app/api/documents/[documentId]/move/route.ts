@@ -9,53 +9,50 @@ export async function PATCH(
     try {
         const { documentId } = await params;
         const session = await getSession();
-        if (!session?.email) {
+        if (!session?.userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const { folderId, dataRoomId } = await req.json();
 
-        // Get user
-        const user = await prisma.user.findUnique({
-            where: { email: session.email },
-        });
-
-        if (!user) {
-            return NextResponse.json({ error: "User not found" }, { status: 404 });
-        }
-
-        // Get document to verify ownership/access
-        const document = await prisma.document.findUnique({
-            where: { id: documentId },
-            include: {
-                team: {
-                    include: {
-                        members: true,
+        // Get document to verify ownership/access via GroupMember (ADMINISTRATOR group type)
+        const document = await prisma.document.findFirst({
+            where: {
+                id: documentId,
+                OR: [
+                    { ownerId: session.userId },
+                    {
+                        dataRoom: {
+                            groups: {
+                                some: {
+                                    type: "ADMINISTRATOR",
+                                    members: {
+                                        some: {
+                                            userId: session.userId,
+                                        },
+                                    },
+                                },
+                            },
+                        },
                     },
-                },
+                ],
+            },
+            include: {
+                dataRoom: true,
             },
         });
 
         if (!document) {
-            return NextResponse.json({ error: "Document not found" }, { status: 404 });
+            return NextResponse.json({ error: "Document not found or access denied" }, { status: 404 });
         }
 
-        // Check if user is member of the document's team
-        const isMember = document.team.members.some(
-            (member) => member.userId === user.id
-        );
-
-        if (!isMember && document.ownerId !== user.id) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-        }
-
-        // If folderId is provided, verify it belongs to the same team
+        // If folderId is provided, verify it belongs to the same data room
         if (folderId) {
             const folder = await prisma.folder.findUnique({
                 where: { id: folderId },
             });
 
-            if (!folder || folder.teamId !== document.teamId) {
+            if (!folder || folder.dataRoomId !== document.dataRoomId) {
                 return NextResponse.json(
                     { error: "Invalid folder" },
                     { status: 400 }
@@ -63,27 +60,34 @@ export async function PATCH(
             }
         }
 
-        // If dataRoomId is provided, verify it belongs to the same team
-        if (dataRoomId) {
-            const dataRoom = await prisma.dataRoom.findUnique({
-                where: { id: dataRoomId },
+        // If dataRoomId is provided, verify user has access to that data room (ADMINISTRATOR group type)
+        if (dataRoomId && dataRoomId !== document.dataRoomId) {
+            const hasAccess = await prisma.groupMember.findFirst({
+                where: {
+                    userId: session.userId,
+                    group: {
+                        dataRoomId: dataRoomId,
+                        type: "ADMINISTRATOR",
+                    },
+                },
             });
 
-            if (!dataRoom || dataRoom.teamId !== document.teamId) {
+            if (!hasAccess) {
                 return NextResponse.json(
-                    { error: "Invalid data room" },
+                    { error: "Invalid data room or access denied" },
                     { status: 400 }
                 );
             }
         }
 
         // Build update data
-        const updateData: { folderId: string | null; dataRoomId?: string | null } = {
+        const updateData: { folderId: string | null; dataRoomId?: string } = {
             folderId: folderId || null,
         };
         
-        if (dataRoomId !== undefined) {
-            updateData.dataRoomId = dataRoomId || null;
+        // dataRoomId is required and cannot be null
+        if (dataRoomId) {
+            updateData.dataRoomId = dataRoomId;
         }
 
         // Update document
@@ -95,8 +99,8 @@ export async function PATCH(
         // Create audit log
         await prisma.auditLog.create({
             data: {
-                userId: user.id,
-                teamId: document.teamId,
+                userId: session.userId,
+                dataRoomId: document.dataRoomId,
                 action: "DOCUMENT_MOVED",
                 resourceType: "DOCUMENT",
                 resourceId: documentId,

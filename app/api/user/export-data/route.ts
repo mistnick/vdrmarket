@@ -36,16 +36,19 @@ export async function GET(request: NextRequest) {
       where: { id: session.userId },
       include: {
         accounts: true,
-        teams: {
+        groupMemberships: {
           include: {
-            team: {
+            group: {
               include: {
-                _count: {
-                  select: {
-                    documents: true,
-                    folders: true,
-                    dataRooms: true,
-                    members: true,
+                dataRoom: {
+                  include: {
+                    _count: {
+                      select: {
+                        documents: true,
+                        folders: true,
+                        groups: true,
+                      },
+                    },
                   },
                 },
               },
@@ -112,13 +115,14 @@ export async function GET(request: NextRequest) {
         providerAccountId: acc.providerAccountId,
         type: acc.type,
       })),
-      teams: userData.teams.map((tm) => ({
-        role: tm.role,
-        team: {
-          name: tm.team.name,
-          slug: tm.team.slug,
-          plan: tm.team.plan,
-          statistics: tm.team._count,
+      dataRooms: userData.groupMemberships.map((gm) => ({
+        role: gm.role,
+        group: gm.group.name,
+        dataRoom: {
+          name: gm.group.dataRoom.name,
+          slug: gm.group.dataRoom.slug,
+          plan: gm.group.dataRoom.plan,
+          statistics: gm.group.dataRoom._count,
         },
       })),
       documents: userData.documents.map((doc) => ({
