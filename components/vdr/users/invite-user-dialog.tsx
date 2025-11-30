@@ -141,11 +141,12 @@ export function InviteUserDialog({
                                         {groups.map((group) => (
                                             <div key={group.id} className="flex items-center space-x-2">
                                                 <Checkbox
-                                                    checked={field.value.includes(group.id)}
+                                                    checked={(field.value ?? []).includes(group.id)}
                                                     onCheckedChange={(checked) => {
+                                                        const currentValue = field.value ?? [];
                                                         const newValue = checked
-                                                            ? [...field.value, group.id]
-                                                            : field.value.filter((id) => id !== group.id);
+                                                            ? [...currentValue, group.id]
+                                                            : currentValue.filter((id) => id !== group.id);
                                                         field.onChange(newValue);
                                                     }}
                                                 />
