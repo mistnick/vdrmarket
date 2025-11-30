@@ -253,18 +253,23 @@ if [ "$DB_ONLY" = true ]; then
         log_info "Skipping database seeding (--skip-seed flag)"
     else
         log_info "Seeding database..."
-        if docker exec ${PROJECT_NAME}-app npm run db:seed 2>/dev/null; then
+        # Show full output to debug seed issues
+        docker exec ${PROJECT_NAME}-app npm run db:seed
+        SEED_EXIT=$?
+        if [ $SEED_EXIT -eq 0 ]; then
             log_success "Database seeded"
         else
-            log_info "Seeding skipped (already seeded or no seed script)"
+            log_warning "Seed script returned error code $SEED_EXIT"
         fi
 
         # Run permission seeding
         log_info "Seeding permissions..."
-        if docker exec ${PROJECT_NAME}-app npm run db:seed:permissions 2>/dev/null; then
+        docker exec ${PROJECT_NAME}-app npm run db:seed:permissions
+        PERM_EXIT=$?
+        if [ $PERM_EXIT -eq 0 ]; then
             log_success "Permissions seeded"
         else
-            log_info "Permission seeding skipped"
+            log_warning "Permission seed returned error code $PERM_EXIT"
         fi
         
         # Verify super admin account exists
@@ -282,7 +287,36 @@ if [ "$DB_ONLY" = true ]; then
             if [ "$SUPER_ADMIN_CHECK" -eq "1" ]; then
                 log_success "Super admin account verified (info@simplevdr.com)"
             else
-                log_warning "Super admin account not found - run 'npm run db:seed' manually"
+                log_warning "Super admin not found - creating directly via SQL..."
+                # Create super admin directly in database
+                docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -c "
+                INSERT INTO users (id, email, name, password, \"isSuperAdmin\", \"isActive\", \"emailVerified\", \"createdAt\", \"updatedAt\")
+                VALUES (
+                    gen_random_uuid(),
+                    'info@simplevdr.com',
+                    'SimpleVDR Admin',
+                    '\$2a\$10\$K8YQH8qXzqjVxJQJ6ZvKs.gVXqXq5KeJnH4WVHqVwGLdZnNqFqQHe',
+                    true,
+                    true,
+                    NOW(),
+                    NOW(),
+                    NOW()
+                )
+                ON CONFLICT (email) DO UPDATE SET
+                    \"isSuperAdmin\" = true,
+                    \"isActive\" = true;
+                " 2>/dev/null || log_error "Failed to create super admin via SQL"
+                
+                # Re-verify
+                SUPER_ADMIN_CHECK=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+                SELECT COUNT(*) FROM users WHERE email = 'info@simplevdr.com' AND \"isSuperAdmin\" = true;
+                " 2>/dev/null || echo "0")
+                
+                if [ "$SUPER_ADMIN_CHECK" -eq "1" ]; then
+                    log_success "Super admin created via SQL (info@simplevdr.com / S1mpl3VDR!!)"
+                else
+                    log_error "Failed to create super admin"
+                fi
             fi
         else
             log_warning "isSuperAdmin column not found - run migrations first"
@@ -302,8 +336,56 @@ if [ "$DB_ONLY" = true ]; then
         " 2>/dev/null || echo "0")
 
         if [ "$ADMIN_GROUPS" -eq "0" ]; then
-            log_warning "No ADMINISTRATOR groups found"
-            log_info "Run 'npm run db:seed:permissions' to create default groups"
+            log_warning "No ADMINISTRATOR groups found - creating default group..."
+            
+            # Get super admin user ID
+            SUPER_ADMIN_ID=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+            SELECT id FROM users WHERE email = 'info@simplevdr.com' LIMIT 1;
+            " 2>/dev/null | tr -d ' ')
+            
+            if [ -n "$SUPER_ADMIN_ID" ] && [ "$SUPER_ADMIN_ID" != "" ]; then
+                # First create a default DataRoom if none exists
+                DATAROOM_EXISTS=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+                SELECT COUNT(*) FROM data_rooms;
+                " 2>/dev/null || echo "0")
+                
+                if [ "$DATAROOM_EXISTS" -eq "0" ]; then
+                    log_info "Creating default DataRoom..."
+                    docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -c "
+                    INSERT INTO data_rooms (id, name, slug, \"createdAt\", \"updatedAt\")
+                    VALUES (gen_random_uuid(), 'Default DataRoom', 'default-dataroom', NOW(), NOW());
+                    " 2>/dev/null || true
+                fi
+                
+                # Get the DataRoom ID
+                DATAROOM_ID=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+                SELECT id FROM data_rooms LIMIT 1;
+                " 2>/dev/null | tr -d ' ')
+                
+                if [ -n "$DATAROOM_ID" ] && [ "$DATAROOM_ID" != "" ]; then
+                    # Create administrator group
+                    docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -c "
+                    INSERT INTO groups (id, name, type, \"dataRoomId\", \"createdAt\", \"updatedAt\")
+                    VALUES (gen_random_uuid(), 'Administrators', 'ADMINISTRATOR', '$DATAROOM_ID', NOW(), NOW());
+                    " 2>/dev/null || true
+                    
+                    # Get group ID and add super admin as member
+                    GROUP_ID=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+                    SELECT id FROM groups WHERE type = 'ADMINISTRATOR' AND \"dataRoomId\" = '$DATAROOM_ID' LIMIT 1;
+                    " 2>/dev/null | tr -d ' ')
+                    
+                    if [ -n "$GROUP_ID" ] && [ "$GROUP_ID" != "" ]; then
+                        docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -c "
+                        INSERT INTO group_members (id, \"groupId\", \"userId\", role, \"createdAt\", \"updatedAt\")
+                        VALUES (gen_random_uuid(), '$GROUP_ID', '$SUPER_ADMIN_ID', 'owner', NOW(), NOW())
+                        ON CONFLICT DO NOTHING;
+                        " 2>/dev/null || true
+                        log_success "Created ADMINISTRATOR group with super admin"
+                    fi
+                fi
+            else
+                log_warning "Super admin user not found - cannot create group"
+            fi
         else
             log_success "Found $ADMIN_GROUPS ADMINISTRATOR group(s)"
         fi
@@ -585,18 +667,23 @@ if [ "$SKIP_SEED" = true ]; then
     log_info "Skipping database seeding (--skip-seed flag)"
 else
     log_info "Seeding database..."
-    if docker exec ${PROJECT_NAME}-app npm run db:seed 2>/dev/null; then
+    # Show full output to debug seed issues
+    docker exec ${PROJECT_NAME}-app npm run db:seed
+    SEED_EXIT=$?
+    if [ $SEED_EXIT -eq 0 ]; then
         log_success "Database seeded"
     else
-        log_info "Seeding skipped (already seeded or no seed script)"
+        log_warning "Seed script returned error code $SEED_EXIT"
     fi
 
     # Run permission seeding
     log_info "Seeding permissions..."
-    if docker exec ${PROJECT_NAME}-app npm run db:seed:permissions 2>/dev/null; then
+    docker exec ${PROJECT_NAME}-app npm run db:seed:permissions
+    PERM_EXIT=$?
+    if [ $PERM_EXIT -eq 0 ]; then
         log_success "Permissions seeded"
     else
-        log_info "Permission seeding skipped"
+        log_warning "Permission seed returned error code $PERM_EXIT"
     fi
     
     # Verify super admin account exists
@@ -614,7 +701,36 @@ else
         if [ "$SUPER_ADMIN_CHECK" -eq "1" ]; then
             log_success "Super admin account verified (info@simplevdr.com)"
         else
-            log_warning "Super admin account not found - run 'npm run db:seed' manually"
+            log_warning "Super admin not found - creating directly via SQL..."
+            # Create super admin directly in database
+            docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -c "
+            INSERT INTO users (id, email, name, password, \"isSuperAdmin\", \"isActive\", \"emailVerified\", \"createdAt\", \"updatedAt\")
+            VALUES (
+                gen_random_uuid(),
+                'info@simplevdr.com',
+                'SimpleVDR Admin',
+                '\$2a\$10\$K8YQH8qXzqjVxJQJ6ZvKs.gVXqXq5KeJnH4WVHqVwGLdZnNqFqQHe',
+                true,
+                true,
+                NOW(),
+                NOW(),
+                NOW()
+            )
+            ON CONFLICT (email) DO UPDATE SET
+                \"isSuperAdmin\" = true,
+                \"isActive\" = true;
+            " 2>/dev/null || log_error "Failed to create super admin via SQL"
+            
+            # Re-verify
+            SUPER_ADMIN_CHECK=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+            SELECT COUNT(*) FROM users WHERE email = 'info@simplevdr.com' AND \"isSuperAdmin\" = true;
+            " 2>/dev/null || echo "0")
+            
+            if [ "$SUPER_ADMIN_CHECK" -eq "1" ]; then
+                log_success "Super admin created via SQL (info@simplevdr.com / S1mpl3VDR!!)"
+            else
+                log_error "Failed to create super admin"
+            fi
         fi
     else
         log_warning "isSuperAdmin column not found - run migrations first"
@@ -634,8 +750,56 @@ if [ "$GROUPS_TABLE_EXISTS" -eq "1" ]; then
     " 2>/dev/null || echo "0")
 
     if [ "$ADMIN_GROUPS" -eq "0" ]; then
-        log_warning "No ADMINISTRATOR groups found"
-        log_info "Run 'npm run db:seed:permissions' to create default groups"
+        log_warning "No ADMINISTRATOR groups found - creating default group..."
+        
+        # Get super admin user ID
+        SUPER_ADMIN_ID=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+        SELECT id FROM users WHERE email = 'info@simplevdr.com' LIMIT 1;
+        " 2>/dev/null | tr -d ' ')
+        
+        if [ -n "$SUPER_ADMIN_ID" ] && [ "$SUPER_ADMIN_ID" != "" ]; then
+            # First create a default DataRoom if none exists
+            DATAROOM_EXISTS=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+            SELECT COUNT(*) FROM data_rooms;
+            " 2>/dev/null || echo "0")
+            
+            if [ "$DATAROOM_EXISTS" -eq "0" ]; then
+                log_info "Creating default DataRoom..."
+                docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -c "
+                INSERT INTO data_rooms (id, name, slug, \"createdAt\", \"updatedAt\")
+                VALUES (gen_random_uuid(), 'Default DataRoom', 'default-dataroom', NOW(), NOW());
+                " 2>/dev/null || true
+            fi
+            
+            # Get the DataRoom ID
+            DATAROOM_ID=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+            SELECT id FROM data_rooms LIMIT 1;
+            " 2>/dev/null | tr -d ' ')
+            
+            if [ -n "$DATAROOM_ID" ] && [ "$DATAROOM_ID" != "" ]; then
+                # Create administrator group
+                docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -c "
+                INSERT INTO groups (id, name, type, \"dataRoomId\", \"createdAt\", \"updatedAt\")
+                VALUES (gen_random_uuid(), 'Administrators', 'ADMINISTRATOR', '$DATAROOM_ID', NOW(), NOW());
+                " 2>/dev/null || true
+                
+                # Get group ID and add super admin as member
+                GROUP_ID=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+                SELECT id FROM groups WHERE type = 'ADMINISTRATOR' AND \"dataRoomId\" = '$DATAROOM_ID' LIMIT 1;
+                " 2>/dev/null | tr -d ' ')
+                
+                if [ -n "$GROUP_ID" ] && [ "$GROUP_ID" != "" ]; then
+                    docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -c "
+                    INSERT INTO group_members (id, \"groupId\", \"userId\", role, \"createdAt\", \"updatedAt\")
+                    VALUES (gen_random_uuid(), '$GROUP_ID', '$SUPER_ADMIN_ID', 'owner', NOW(), NOW())
+                    ON CONFLICT DO NOTHING;
+                    " 2>/dev/null || true
+                    log_success "Created ADMINISTRATOR group with super admin"
+                fi
+            fi
+        else
+            log_warning "Super admin user not found - cannot create group"
+        fi
     else
         log_success "Found $ADMIN_GROUPS ADMINISTRATOR group(s)"
     fi
