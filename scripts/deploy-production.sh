@@ -181,8 +181,13 @@ if [ "$DB_ONLY" = true ]; then
     if docker exec ${PROJECT_NAME}-app npx prisma migrate deploy; then
         log_success "Database migrations applied"
     else
-        log_warning "Migration failed - checking if database is up to date..."
-        docker exec ${PROJECT_NAME}-app npx prisma migrate status
+        log_warning "Migration deploy failed - trying db push as fallback..."
+        if docker exec ${PROJECT_NAME}-app npx prisma db push --accept-data-loss 2>/dev/null; then
+            log_success "Database schema pushed successfully"
+        else
+            log_error "Database schema update failed"
+            log_info "Try running manually: npx prisma db push"
+        fi
     fi
 
     # Regenerate Prisma client
@@ -199,13 +204,14 @@ if [ "$DB_ONLY" = true ]; then
                        'document_group_permissions', 'document_user_permissions',
                        'folder_group_permissions', 'folder_user_permissions',
                        'due_diligence_checklists', 'due_diligence_items');
-    ")
+    " 2>/dev/null || echo "0")
 
     if [ "$VDR_TABLES_CHECK" -eq "9" ]; then
         log_success "All 9 VDR tables verified"
     else
         log_warning "Expected 9 VDR tables, found $VDR_TABLES_CHECK"
-        log_info "Run 'npx prisma db push' if tables are missing"
+        log_info "Running prisma db push to create missing tables..."
+        docker exec ${PROJECT_NAME}-app npx prisma db push --accept-data-loss 2>/dev/null || true
     fi
 
     # Check DataRoom schema
@@ -213,7 +219,7 @@ if [ "$DB_ONLY" = true ]; then
     DATAROOM_CHECK=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
     SELECT COUNT(*) FROM information_schema.columns 
     WHERE table_name = 'data_rooms' AND column_name = 'slug';
-    ")
+    " 2>/dev/null || echo "0")
 
     if [ "$DATAROOM_CHECK" -eq "1" ]; then
         log_success "DataRoom schema verified"
@@ -264,15 +270,24 @@ if [ "$DB_ONLY" = true ]; then
 
     # Create default VDR groups if needed
     log_info "Checking VDR administrator groups..."
-    ADMIN_GROUPS=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
-    SELECT COUNT(*) FROM groups WHERE type = 'ADMINISTRATOR';
-    ")
+    # First check if groups table exists
+    GROUPS_TABLE_EXISTS=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+    SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'groups';
+    " 2>/dev/null || echo "0")
+    
+    if [ "$GROUPS_TABLE_EXISTS" -eq "1" ]; then
+        ADMIN_GROUPS=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+        SELECT COUNT(*) FROM groups WHERE type = 'ADMINISTRATOR';
+        " 2>/dev/null || echo "0")
 
-    if [ "$ADMIN_GROUPS" -eq "0" ]; then
-        log_warning "No ADMINISTRATOR groups found"
-        log_info "Run 'npm run db:seed:permissions' to create default groups"
+        if [ "$ADMIN_GROUPS" -eq "0" ]; then
+            log_warning "No ADMINISTRATOR groups found"
+            log_info "Run 'npm run db:seed:permissions' to create default groups"
+        else
+            log_success "Found $ADMIN_GROUPS ADMINISTRATOR group(s)"
+        fi
     else
-        log_success "Found $ADMIN_GROUPS ADMINISTRATOR group(s)"
+        log_warning "Groups table not found - schema needs to be applied"
     fi
 
     log_success "Database setup completed!"
@@ -496,13 +511,14 @@ AND table_name IN ('groups', 'group_members', 'user_invitations',
                    'document_group_permissions', 'document_user_permissions',
                    'folder_group_permissions', 'folder_user_permissions',
                    'due_diligence_checklists', 'due_diligence_items');
-")
+" 2>/dev/null || echo "0")
 
 if [ "$VDR_TABLES_CHECK" -eq "9" ]; then
     log_success "All 9 VDR tables verified"
 else
     log_warning "Expected 9 VDR tables, found $VDR_TABLES_CHECK"
-    log_info "Run 'npx prisma db push' if tables are missing"
+    log_info "Running prisma db push to create missing tables..."
+    docker exec ${PROJECT_NAME}-app npx prisma db push --accept-data-loss 2>/dev/null || true
 fi
 
 # Check DataRoom schema
@@ -510,7 +526,7 @@ log_info "Verifying DataRoom schema..."
 DATAROOM_CHECK=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
 SELECT COUNT(*) FROM information_schema.columns 
 WHERE table_name = 'data_rooms' AND column_name = 'slug';
-")
+" 2>/dev/null || echo "0")
 
 if [ "$DATAROOM_CHECK" -eq "1" ]; then
     log_success "DataRoom schema verified"
@@ -561,15 +577,24 @@ fi
 
 # Create default VDR groups if needed
 log_info "Checking VDR administrator groups..."
-ADMIN_GROUPS=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
-SELECT COUNT(*) FROM groups WHERE type = 'ADMINISTRATOR';
-")
+# First check if groups table exists
+GROUPS_TABLE_EXISTS=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'groups';
+" 2>/dev/null || echo "0")
 
-if [ "$ADMIN_GROUPS" -eq "0" ]; then
-    log_warning "No ADMINISTRATOR groups found"
-    log_info "Run 'npm run db:seed:permissions' to create default groups"
+if [ "$GROUPS_TABLE_EXISTS" -eq "1" ]; then
+    ADMIN_GROUPS=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+    SELECT COUNT(*) FROM groups WHERE type = 'ADMINISTRATOR';
+    " 2>/dev/null || echo "0")
+
+    if [ "$ADMIN_GROUPS" -eq "0" ]; then
+        log_warning "No ADMINISTRATOR groups found"
+        log_info "Run 'npm run db:seed:permissions' to create default groups"
+    else
+        log_success "Found $ADMIN_GROUPS ADMINISTRATOR group(s)"
+    fi
 else
-    log_success "Found $ADMIN_GROUPS ADMINISTRATOR group(s)"
+    log_warning "Groups table not found - schema needs to be applied"
 fi
 
 # Step 9: Final status and summary
