@@ -182,11 +182,13 @@ if [ "$DB_ONLY" = true ]; then
         log_success "Database migrations applied"
     else
         log_warning "Migration deploy failed - trying db push as fallback..."
-        if docker exec ${PROJECT_NAME}-app npx prisma db push --accept-data-loss 2>/dev/null; then
+        # Show output to debug issues
+        docker exec ${PROJECT_NAME}-app npx prisma db push --accept-data-loss
+        if [ $? -eq 0 ]; then
             log_success "Database schema pushed successfully"
         else
-            log_error "Database schema update failed"
-            log_info "Try running manually: npx prisma db push"
+            log_error "Database schema update failed - trying force reset..."
+            docker exec ${PROJECT_NAME}-app npx prisma db push --force-reset --accept-data-loss
         fi
     fi
 
@@ -210,8 +212,27 @@ if [ "$DB_ONLY" = true ]; then
         log_success "All 9 VDR tables verified"
     else
         log_warning "Expected 9 VDR tables, found $VDR_TABLES_CHECK"
-        log_info "Running prisma db push to create missing tables..."
-        docker exec ${PROJECT_NAME}-app npx prisma db push --accept-data-loss 2>/dev/null || true
+        log_info "Running prisma db push with force-reset to create missing tables..."
+        docker exec ${PROJECT_NAME}-app npx prisma db push --force-reset --accept-data-loss
+        
+        # Re-verify after push
+        sleep 2
+        VDR_TABLES_CHECK=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+        SELECT COUNT(*) FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name IN ('groups', 'group_members', 'user_invitations', 
+                           'document_group_permissions', 'document_user_permissions',
+                           'folder_group_permissions', 'folder_user_permissions',
+                           'due_diligence_checklists', 'due_diligence_items');
+        " 2>/dev/null || echo "0")
+        
+        if [ "$VDR_TABLES_CHECK" -eq "9" ]; then
+            log_success "All 9 VDR tables created successfully"
+        else
+            log_error "Failed to create VDR tables. Found $VDR_TABLES_CHECK/9 tables"
+            log_info "Listing existing tables:"
+            docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -c "\dt"
+        fi
     fi
 
     # Check DataRoom schema
@@ -493,8 +514,14 @@ log_info "Applying database migrations..."
 if docker exec ${PROJECT_NAME}-app npx prisma migrate deploy; then
     log_success "Database migrations applied"
 else
-    log_warning "Migration failed - checking if database is up to date..."
-    docker exec ${PROJECT_NAME}-app npx prisma migrate status
+    log_warning "Migration deploy failed - trying db push as fallback..."
+    docker exec ${PROJECT_NAME}-app npx prisma db push --accept-data-loss
+    if [ $? -eq 0 ]; then
+        log_success "Database schema pushed successfully"
+    else
+        log_error "Database schema update failed - trying force reset..."
+        docker exec ${PROJECT_NAME}-app npx prisma db push --force-reset --accept-data-loss
+    fi
 fi
 
 # Regenerate Prisma client
@@ -517,8 +544,27 @@ if [ "$VDR_TABLES_CHECK" -eq "9" ]; then
     log_success "All 9 VDR tables verified"
 else
     log_warning "Expected 9 VDR tables, found $VDR_TABLES_CHECK"
-    log_info "Running prisma db push to create missing tables..."
-    docker exec ${PROJECT_NAME}-app npx prisma db push --accept-data-loss 2>/dev/null || true
+    log_info "Running prisma db push with force-reset to create missing tables..."
+    docker exec ${PROJECT_NAME}-app npx prisma db push --force-reset --accept-data-loss
+    
+    # Re-verify after push
+    sleep 2
+    VDR_TABLES_CHECK=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+    SELECT COUNT(*) FROM information_schema.tables 
+    WHERE table_schema = 'public' 
+    AND table_name IN ('groups', 'group_members', 'user_invitations', 
+                       'document_group_permissions', 'document_user_permissions',
+                       'folder_group_permissions', 'folder_user_permissions',
+                       'due_diligence_checklists', 'due_diligence_items');
+    " 2>/dev/null || echo "0")
+    
+    if [ "$VDR_TABLES_CHECK" -eq "9" ]; then
+        log_success "All 9 VDR tables created successfully"
+    else
+        log_error "Failed to create VDR tables. Found $VDR_TABLES_CHECK/9 tables"
+        log_info "Listing existing tables:"
+        docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -c "\dt"
+    fi
 fi
 
 # Check DataRoom schema
