@@ -26,6 +26,7 @@
 #   --skip-build   Skip Docker image building
 #   --skip-seed    Skip database seeding
 #   --force-ssl    Force SSL regeneration
+#   --db-only      Skip to database migration step (8/9) - assumes services running
 #   --help         Show this help message
 #
 # ==============================================================================
@@ -52,6 +53,7 @@ SKIP_SSL=false
 SKIP_BUILD=false
 SKIP_SEED=false
 FORCE_SSL=false
+DB_ONLY=false
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -59,6 +61,7 @@ while [[ "$#" -gt 0 ]]; do
         --skip-build) SKIP_BUILD=true ;;
         --skip-seed) SKIP_SEED=true ;;
         --force-ssl) FORCE_SSL=true ;;
+        --db-only) DB_ONLY=true ;;
         --help)
             echo "Usage: $0 [options]"
             echo ""
@@ -67,6 +70,7 @@ while [[ "$#" -gt 0 ]]; do
             echo "  --skip-build   Skip Docker image building"
             echo "  --skip-seed    Skip database seeding"
             echo "  --force-ssl    Force SSL regeneration"
+            echo "  --db-only      Skip to database migration step (8/9) - assumes services running"
             echo "  --help         Show this help message"
             exit 0
             ;;
@@ -149,6 +153,124 @@ echo "║       Date: $(date '+%Y-%m-%d %H:%M:%S')                      ║"
 echo "║                                                              ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
+
+# If --db-only flag is set, skip to step 8
+if [ "$DB_ONLY" = true ]; then
+    log_info "🚀 --db-only flag detected, skipping to database migrations..."
+    log_info "Assuming services are already running..."
+    
+    # Quick health check
+    if ! docker exec ${PROJECT_NAME}-postgres pg_isready -U postgres -d dataroom > /dev/null 2>&1; then
+        log_error "PostgreSQL is not running! Start services first or run without --db-only"
+        exit 1
+    fi
+    log_success "PostgreSQL is running"
+    
+    if ! docker exec ${PROJECT_NAME}-app wget --no-verbose --tries=1 --spider http://localhost:3000/api/health > /dev/null 2>&1; then
+        log_warning "Application health check failed, but continuing..."
+    else
+        log_success "Application is running"
+    fi
+    
+    # Jump to Step 8
+    # Step 8: Database migrations and VDR setup
+    log_step "8/9" "Running database migrations and VDR setup..."
+    
+    # Run Prisma migrations
+    log_info "Applying database migrations..."
+    if docker exec ${PROJECT_NAME}-app npx prisma migrate deploy; then
+        log_success "Database migrations applied"
+    else
+        log_warning "Migration failed - checking if database is up to date..."
+        docker exec ${PROJECT_NAME}-app npx prisma migrate status
+    fi
+
+    # Regenerate Prisma client
+    log_info "Regenerating Prisma client..."
+    docker exec ${PROJECT_NAME}-app npx prisma generate
+    log_success "Prisma client regenerated"
+
+    # Verify VDR tables exist
+    log_info "Verifying VDR system tables..."
+    VDR_TABLES_CHECK=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+    SELECT COUNT(*) FROM information_schema.tables 
+    WHERE table_schema = 'public' 
+    AND table_name IN ('groups', 'group_members', 'user_invitations', 
+                       'document_group_permissions', 'document_user_permissions',
+                       'folder_group_permissions', 'folder_user_permissions',
+                       'due_diligence_checklists', 'due_diligence_items');
+    ")
+
+    if [ "$VDR_TABLES_CHECK" -eq "9" ]; then
+        log_success "All 9 VDR tables verified"
+    else
+        log_warning "Expected 9 VDR tables, found $VDR_TABLES_CHECK"
+        log_info "Run 'npx prisma db push' if tables are missing"
+    fi
+
+    # Check DataRoom schema
+    log_info "Verifying DataRoom schema..."
+    DATAROOM_CHECK=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+    SELECT COUNT(*) FROM information_schema.columns 
+    WHERE table_name = 'data_rooms' AND column_name = 'slug';
+    ")
+
+    if [ "$DATAROOM_CHECK" -eq "1" ]; then
+        log_success "DataRoom schema verified"
+    else
+        log_warning "DataRoom table may need migration"
+    fi
+
+    # Seed database if needed
+    if [ "$SKIP_SEED" = true ]; then
+        log_info "Skipping database seeding (--skip-seed flag)"
+    else
+        log_info "Seeding database..."
+        if docker exec ${PROJECT_NAME}-app npm run db:seed 2>/dev/null; then
+            log_success "Database seeded"
+        else
+            log_info "Seeding skipped (already seeded or no seed script)"
+        fi
+
+        # Run permission seeding
+        log_info "Seeding permissions..."
+        if docker exec ${PROJECT_NAME}-app npm run db:seed:permissions 2>/dev/null; then
+            log_success "Permissions seeded"
+        else
+            log_info "Permission seeding skipped"
+        fi
+        
+        # Verify super admin account exists
+        log_info "Verifying super admin account..."
+        SUPER_ADMIN_CHECK=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+        SELECT COUNT(*) FROM users WHERE email = 'info@simplevdr.com' AND \"isSuperAdmin\" = true;
+        ")
+        
+        if [ "$SUPER_ADMIN_CHECK" -eq "1" ]; then
+            log_success "Super admin account verified (info@simplevdr.com)"
+        else
+            log_warning "Super admin account not found - run 'npm run db:seed' manually"
+        fi
+    fi
+
+    # Create default VDR groups if needed
+    log_info "Checking VDR administrator groups..."
+    ADMIN_GROUPS=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+    SELECT COUNT(*) FROM groups WHERE type = 'ADMINISTRATOR';
+    ")
+
+    if [ "$ADMIN_GROUPS" -eq "0" ]; then
+        log_warning "No ADMINISTRATOR groups found"
+        log_info "Run 'npm run db:seed:permissions' to create default groups"
+    else
+        log_success "Found $ADMIN_GROUPS ADMINISTRATOR group(s)"
+    fi
+
+    log_success "Database setup completed!"
+    echo ""
+    log_info "Run 'docker-compose -f $COMPOSE_FILE logs -f' to view logs"
+    exit 0
+fi
 
 # Step 0: Prerequisites
 check_prerequisites
