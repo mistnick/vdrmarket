@@ -242,14 +242,23 @@ if [ "$DB_ONLY" = true ]; then
         
         # Verify super admin account exists
         log_info "Verifying super admin account..."
-        SUPER_ADMIN_CHECK=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
-        SELECT COUNT(*) FROM users WHERE email = 'info@simplevdr.com' AND \"isSuperAdmin\" = true;
-        ")
+        # Check if isSuperAdmin column exists first
+        COLUMN_EXISTS=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+        SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'isSuperAdmin';
+        " 2>/dev/null || echo "0")
         
-        if [ "$SUPER_ADMIN_CHECK" -eq "1" ]; then
-            log_success "Super admin account verified (info@simplevdr.com)"
+        if [ "$COLUMN_EXISTS" -eq "1" ]; then
+            SUPER_ADMIN_CHECK=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+            SELECT COUNT(*) FROM users WHERE email = 'info@simplevdr.com' AND \"isSuperAdmin\" = true;
+            " 2>/dev/null || echo "0")
+            
+            if [ "$SUPER_ADMIN_CHECK" -eq "1" ]; then
+                log_success "Super admin account verified (info@simplevdr.com)"
+            else
+                log_warning "Super admin account not found - run 'npm run db:seed' manually"
+            fi
         else
-            log_warning "Super admin account not found - run 'npm run db:seed' manually"
+            log_warning "isSuperAdmin column not found - run migrations first"
         fi
     fi
 
@@ -530,14 +539,23 @@ else
     
     # Verify super admin account exists
     log_info "Verifying super admin account..."
-    SUPER_ADMIN_CHECK=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
-    SELECT COUNT(*) FROM users WHERE email = 'info@simplevdr.com' AND \"isSuperAdmin\" = true;
-    ")
+    # Check if isSuperAdmin column exists first
+    COLUMN_EXISTS=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+    SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'isSuperAdmin';
+    " 2>/dev/null || echo "0")
     
-    if [ "$SUPER_ADMIN_CHECK" -eq "1" ]; then
-        log_success "Super admin account verified (info@simplevdr.com)"
+    if [ "$COLUMN_EXISTS" -eq "1" ]; then
+        SUPER_ADMIN_CHECK=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
+        SELECT COUNT(*) FROM users WHERE email = 'info@simplevdr.com' AND \"isSuperAdmin\" = true;
+        " 2>/dev/null || echo "0")
+        
+        if [ "$SUPER_ADMIN_CHECK" -eq "1" ]; then
+            log_success "Super admin account verified (info@simplevdr.com)"
+        else
+            log_warning "Super admin account not found - run 'npm run db:seed' manually"
+        fi
     else
-        log_warning "Super admin account not found - run 'npm run db:seed' manually"
+        log_warning "isSuperAdmin column not found - run migrations first"
     fi
 fi
 
