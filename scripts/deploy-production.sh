@@ -409,7 +409,7 @@ else
     # Verify super admin account exists
     log_info "Verifying super admin account..."
     SUPER_ADMIN_CHECK=$(docker exec ${PROJECT_NAME}-postgres psql -U postgres -d dataroom -tAc "
-    SELECT COUNT(*) FROM users WHERE email = 'info@simplevdr.com' AND \"is_super_admin\" = true;
+    SELECT COUNT(*) FROM users WHERE email = 'info@simplevdr.com' AND \"isSuperAdmin\" = true;
     ")
     
     if [ "$SUPER_ADMIN_CHECK" -eq "1" ]; then
